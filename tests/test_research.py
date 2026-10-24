@@ -17,6 +17,19 @@ def result(text='調査結果', searched=True):
 
 
 class ResearchTests(unittest.TestCase):
+    def test_legacy_compatibility_keeps_vision_and_never_claims_search(self):
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+            def read(self):return b'{"choices":[{"message":{"content":"OK"}}]}'
+        failure=urllib.error.HTTPError('https://api.openai.com',401,'failed',{},None)
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'test','ASSISTANT_API_KEY':''}),patch.object(research.urllib.request,'urlopen',side_effect=[failure,Response()]) as call:
+            answer=research.respond([{'role':'system','content':'instructions'},{'role':'user','content':[{'type':'input_text','text':'photo'},{'type':'input_image','image_url':'data:image/png;base64,AAAA','detail':'low'}]}])
+            payload=json.loads(call.call_args.args[0].data);self.assertEqual(answer,'OK');self.assertEqual(answer.searches,0);self.assertEqual(answer.sources,[])
+            self.assertIn('検索していない',payload['messages'][1]['content']);self.assertEqual(payload['messages'][-1]['content'][1]['type'],'image_url');self.assertFalse(payload['store'])
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'test','ASSISTANT_API_KEY':''}),patch.object(research.urllib.request,'urlopen',side_effect=failure) as call:
+            with self.assertRaises(research.ResearchError):research.respond([],require_search=True)
+            self.assertEqual(call.call_count,1)
     def test_sources_deduplicated_citations_preserved_and_markup_not_spoken(self):
         answer = research.parse_response(result())
         self.assertEqual(answer, '調査結果')

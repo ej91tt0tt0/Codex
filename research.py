@@ -18,6 +18,7 @@ class Answer(str):
         value.sources = list(sources)
         value.searches = searches
         value.fetched_at = datetime.now(timezone.utc).isoformat()
+        value.provider = 'responses'
         return value
 
 
@@ -96,6 +97,9 @@ def respond(messages, search=True, require_search=False, max_tokens=1000):
             data = json.load(response)
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
+            if not require_search:
+                try:return legacy_reply(messages,key,max_tokens,search)
+                except Exception:pass
             raise ResearchError('OpenAIのAPI認証に失敗したよ。起動時に入力したキーと有効状態を確認してね。') from None
         if exc.code == 429:
             raise ResearchError('OpenAIの利用枠または呼び出し上限に達したよ。利用枠を確認して、時間を置いて試してね。') from None
@@ -103,6 +107,24 @@ def respond(messages, search=True, require_search=False, max_tokens=1000):
     except Exception:
         raise ResearchError('AIの調査に接続できませんでした。APIの利用枠・モデルのWeb検索対応・接続を確認してください。') from None
     return parse_response(data, require_search=require_search)
+
+
+def legacy_reply(messages,key,max_tokens,search=False):
+    """Authenticated Chat Completions compatibility; never claims a Web search occurred."""
+    converted=[]
+    for message in messages:
+        content=message['content']
+        if isinstance(content,list):
+            content=[{'type':'text','text':part['text']} if part['type']=='input_text' else {'type':'image_url','image_url':{'url':part['image_url'],'detail':part.get('detail','low')}} for part in content]
+        converted.append({'role':message['role'],'content':content})
+    if search:
+        converted.insert(1,{'role':'system','content':'Web検索への接続が利用できないため、この応答では検索していない。最新の天気・交通・ニュース・価格などを確認済みと答えず、必要なら未確認と伝える。資料の取得日時を区別する。'})
+    payload={'model':os.environ.get('OPENAI_MODEL','gpt-4.1-mini'),'messages':converted,'max_completion_tokens':max_tokens,'store':False}
+    request=urllib.request.Request('https://api.openai.com/v1/chat/completions',data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+    with urllib.request.urlopen(request,timeout=60) as response:data=json.load(response)
+    answer=data['choices'][0]['message'].get('content')
+    if not isinstance(answer,str) or not answer.strip():raise ResearchError('互換接続から回答を取得できなかったよ。')
+    result=Answer(answer.strip());result.provider='chat_completions';return result
 
 
 SEARCH_RULES = (

@@ -99,3 +99,5 @@ Pythonの導入: https://www.python.org/downloads/windows/ 。`Add python.exe to
 起動は `python launch.py`、テスト用は `python launch.py --no-browser --no-key`。アプリは127.0.0.1へ固定し、Host/OriginとJSON形式を検証します。ユーザー認証はないため、公開サーバーへは配置しないでください。データは `.data/assistant.sqlite3`。バンドルは明示ファイルリストから作り、キー・DB・実際の個人データを含めません。
 
 自動テスト: `python -m unittest discover -s tests -v` と `node --test tests/test_voice.cjs tests/test_input.cjs tests/test_audio.cjs tests/test_handsfree.cjs`。ブラウザ試験はPlaywrightとChromiumがある開発環境向けです。検証の範囲は [VALIDATION.md](VALIDATION.md) を参照してください。
+
+互換接続: Responses APIが401で利用できない場合、検索を必須にしない会話はChat Completionsで継続します。画像形式も変換します。互換応答ではWeb検索をしたと扱わず、最新情報を確認できないことを伝えます。検索必須の自律タスクは失敗を記録し、通常会話へ置き換えて成功扱いにはしません。

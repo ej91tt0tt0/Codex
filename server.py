@@ -87,22 +87,15 @@ def state():
 
 def connection_check():
     global API_STATUS
-    key=os.environ.get('ASSISTANT_API_KEY') or os.environ.get('OPENAI_API_KEY')
-    model=os.environ.get('OPENAI_MODEL','gpt-4.1-mini')
-    result={'ok':False,'checked_at':datetime.now(timezone.utc).isoformat(),'model':model}
-    if not key:result['message']='起動時にOpenAI APIキーを設定してね。'
-    else:
-        try:
-            payload={'model':model,'input':'Reply with OK only.','max_output_tokens':32,'store':False}
-            request=urllib.request.Request('https://api.openai.com/v1/responses',data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
-            with urllib.request.urlopen(request,timeout=15) as response:
-                metadata=json.loads(response.read(200000))
-            if metadata.get('status')!='completed' or not any(part.get('type')=='output_text' and part.get('text','').strip() for item in metadata.get('output',[]) for part in item.get('content',[])):raise ValueError('No test response')
-            result.update(ok=True,message='会話APIの認証と短い応答の生成を確認したよ。音声・画像・検索の利用枠や対応可否は、各操作で確認してね。')
-        except urllib.error.HTTPError as error:
-            result['message']={401:'APIキーの認証に失敗したよ。起動時に入力したキーと有効状態を確認してね。',403:'このモデルへのアクセスが許可されていないよ。',404:'指定した会話モデルを利用できないよ。',429:'APIの呼び出し上限に達しているよ。時間を置いて確認してね。'}.get(error.code,'APIへの接続を確認できなかったよ。')
-        except Exception:result['message']='ネットワークに接続できず、認証を確認できなかったよ。'
-    API_STATUS=result;return result
+    result={'ok':False,'checked_at':datetime.now(timezone.utc).isoformat(),'model':os.environ.get('OPENAI_MODEL','gpt-4.1-mini')}
+    try:
+        answer=respond([{'role':'user','content':'Reply with OK only.'}],search=False,max_tokens=32)
+        result.update(ok=True,provider=getattr(answer,'provider','responses'))
+        result['message']='会話の生成を確認したよ。'+('互換接続を使用中。Web検索の接続は別途確認が必要だよ。' if result['provider']=='chat_completions' else '音声・画像・検索は各操作で確認してね。')
+    except ResearchError as error:result['message']=str(error)
+    API_STATUS=result
+    return result
+
 
 def cached_weather():
     with connect() as c:
@@ -479,7 +472,7 @@ def generate_reply(s, initiative=None, image=None, private=False):
     messages = [{'role': 'system', 'content': prompt}] + [{'role': m['role'], 'content': m['content']} for m in s['messages'][-20:]]
     if image:
         messages[-1]['content']=[{'type':'input_text','text':messages[-1]['content']},{'type':'input_image','image_url':image,'detail':'low'}]
-        messages[0]['content']+='写真は今回の入力だけ。過去の写真を再び見られるとは言わない。画像だけから本人の身元や健康状態を断定しない。'
+        messages[0]['content']+='写真は今回の入力だけ。過去の写真を再び見られるとは言わない。画像だけから本人の身元や健康状態を断定しない。画像の質問では、今回の画像に直接見える内容を会話の雰囲気より優先して答える。以前の話や見えない物・色を補わない。'
     if initiative:
         messages.append({'role': 'system', 'content': '以上の履歴を参考に、今度はAI側から短く話してください。'})
     else:
