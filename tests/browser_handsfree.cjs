@@ -16,7 +16,7 @@ const {chromium}=require('playwright');const assert=require('node:assert/strict'
  try{
   await page.goto(process.env.TEST_BASE_URL);await page.waitForFunction(()=>voice.greeted);
   assert.equal(await page.evaluate(()=>microphone.running),false);assert.equal(transcriptions,0);
-  await page.locator('#voice-start').click();await page.waitForFunction(()=>microphone.running&&voice.active);assert.match(await page.locator('#mic-toggle').textContent(),/待ち受け/);
+  await page.locator('#voice-start').click();await page.waitForFunction(()=>microphone.running&&voice.active);assert.match(await page.locator('#mic-toggle').textContent(),/待ち受け/);await page.waitForFunction(()=>document.getElementById('input-level').textContent==='MIC · 0%');
   await page.evaluate(()=>localStorage.setItem('test.mic.allowed','true'));
   await page.locator('#menu-button').click();assert.equal(await page.evaluate(()=>microphone.running),true);
   await page.locator('[data-tab=health]').click();await talk();await page.waitForFunction(()=>!voice.busy&&document.getElementById('latest-reply').textContent==='聞こえたよ。');assert.equal(chats,1);assert.equal(await page.evaluate(()=>microphone.running),true);

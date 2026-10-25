@@ -47,7 +47,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.locator('#text-input summary').click();
   assert.equal(await page.locator('aside').count(),0);
-  assert.equal(await page.locator('#chat button:visible').count(),3);
+  assert.equal(await page.locator('.voice-buttons button:visible').count(),3);
   await page.locator('#voice-start').click();
   await page.locator('#menu-button').click();
   assert.equal(await page.evaluate(()=>voice.active),false);

@@ -18,6 +18,15 @@ class CompanionDomainTests(unittest.TestCase):
         self.assertEqual(companion.instruction('今は助言はいらない')['changes']['conversation_mode'],'listen')
         self.assertEqual(companion.instruction('質問は少なめで')['changes']['question_frequency'],'low')
         self.assertIsNone(companion.instruction('友達に「もっと短く」と言われた'))
+    def test_memory_requests_do_not_capture_questions_about_remembering(self):
+        for question in ('覚えている？','覚えてる？','覚えていた映画のタイトルは？','記憶していない？','アスター、覚えてる？','「覚えて：猫が好き」と言う方法は？'):
+            self.assertIsNone(companion.memory_request(question),question)
+        self.assertEqual(companion.memory_request('ASTER: 覚えて：猫が好き'),'猫が好き')
+        self.assertEqual(companion.memory_request('覚えておいて、朝は短い返答が好き'),'朝は短い返答が好き')
+        self.assertEqual(companion.memory_request('覚えてね、たこ焼きが好き'),'たこ焼きが好き')
+        self.assertFalse(companion.personal_action_requested('日記を書いた気分について話したい'))
+        self.assertTrue(companion.personal_action_requested('ASTER、目標を追加、読書を10ページ'))
+
     def test_profile_preferences_are_bounded_and_explicit(self):
         self.assertEqual(companion.validate_preferences({'preferred_name':'ユウ','emoji_level':'few'}),{'preferred_name':'ユウ','emoji_level':'few'})
         for values in ({'display_name':'あ'*41},{'emoji_level':'unlimited'},{'question_frequency':'spam'},{'auto_memory':True}):

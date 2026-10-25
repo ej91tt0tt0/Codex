@@ -5,7 +5,7 @@ import hashlib
 import shutil
 
 ROOT = Path(__file__).parent
-FILES = ['server.py', 'companion.py', 'autonomy.py', 'research.py', 'preferences.py', 'integrations.py', 'launch.py', 'start_windows.bat', 'start_mac.command', 'PC_START.txt', 'README.md', 'VALIDATION.md',
+FILES = ['server.py', 'companion.py', 'autonomy.py', 'public_sources.py', 'research.py', 'preferences.py', 'integrations.py', 'launch.py', 'start_windows.bat', 'start_mac.command', 'PC_START.txt', 'README.md', 'VALIDATION.md',
          'static/index.html', 'static/icon.svg', 'static/companion.js', 'static/handsfree.js', 'static/app.js', 'static/voice.js', 'static/audio.js', 'static/input.js', 'static/mic-worklet.js', 'static/scope.js', 'static/style.css']
 
 

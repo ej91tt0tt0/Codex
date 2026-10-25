@@ -2,13 +2,57 @@
 import argparse
 import errno
 import getpass
+import hashlib
+import json
 import os
+import sqlite3
 import sys
 import threading
 import warnings
+import urllib.request
 import webbrowser
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+
+
+class LocalHealthOnly(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def running_app_url():
+    """Reuse only a local ASTER instance using the very same data directory."""
+    data = Path(os.environ.get('APP_DATA_DIR', Path(__file__).parent / '.data')).resolve()
+    db = data / 'assistant.sqlite3'
+    if not db.is_file():
+        return None
+    try:
+        with sqlite3.connect(db.as_uri() + '?mode=ro', uri=True, timeout=.2) as connection:
+            row = connection.execute("SELECT value FROM settings WHERE key='desktop_port'").fetchone()
+        port = int(row[0]) if row else 8000
+        if not 1024 <= port <= 65535:
+            return None
+        url = 'http://127.0.0.1:' + str(port)
+        # A loopback health check must remain on this PC, including behind a corporate proxy.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), LocalHealthOnly())
+        with opener.open(url + '/api/health', timeout=.4) as response:
+            raw = response.read(4097)
+        if len(raw) > 4096:
+            return None
+        health = json.loads(raw)
+        identifier = hashlib.sha256(os.path.normcase(str(data)).encode()).hexdigest()
+        if isinstance(health, dict) and health.get('app') == 'ASTER' and health.get('data_id') == identifier:
+            return url
+    except (OSError, ValueError, TypeError, sqlite3.Error):
+        pass
+    return None
+
+
+def reuse_running(url, no_browser):
+    print('READY ' + url, flush=True)
+    print('ASTER is already running. Stop its original terminal before applying updates or changing the API key.', flush=True)
+    if not no_browser:
+        webbrowser.open(url)
 
 
 def main():
@@ -18,6 +62,10 @@ def main():
     args = parser.parse_args()
     if sys.version_info < (3, 12):
         raise SystemExit('Python 3.12 or later is required: https://www.python.org/downloads/')
+    existing = running_app_url()
+    if existing:
+        reuse_running(existing, args.no_browser)
+        return
     if not args.no_key and not (os.environ.get('ASSISTANT_API_KEY') or os.environ.get('OPENAI_API_KEY')):
         print('OpenAI API key is optional. Input is hidden and is not saved to a file.')
         print('Press Enter without a key to start in record-only mode.')
@@ -44,6 +92,10 @@ def main():
         http = ThreadingHTTPServer(('127.0.0.1', preferred), server.Handler)
     except OSError as error:
         if error.errno not in (errno.EADDRINUSE, errno.EACCES):raise
+        existing = running_app_url()
+        if existing:
+            reuse_running(existing, args.no_browser)
+            return
         http = ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
     with server.connect() as c:
         c.execute('INSERT OR REPLACE INTO settings VALUES (?,?)', ('desktop_port', str(http.server_port)))

@@ -18,6 +18,30 @@ PRIVATE_STYLE_KEYS = ('conversation_mode', 'emoji_level', 'question_frequency', 
 PRIVATE_PREF_KEYS = (*PRIVATE_STYLE_KEYS,'preferred_name')
 
 
+def command_body(content):
+    value=unicodedata.normalize('NFKC',content).strip()
+    return re.sub(r'^(?:よりそい|アスター|(?i:aster))[、,:：\s]*','',value)
+
+
+def memory_request(content):
+    """Recognize requests to remember, not questions such as 覚えている？."""
+    body=command_body(content)
+    if re.match(r'^(?:覚えて|記憶して)(?:いる|いた|いない|る|ない|た|ます|くれ|もら)',body):return None
+    match=re.fullmatch(r'(?:覚えて|記憶して)(?:おいて)?(?:ください|ほしい|欲しい|ね)?[：:、,\s]*(.+)',body,re.S)
+    if not match:return None
+    value=match[1].strip()
+    if not value or value in ('?','？','ことがある','ことがある。'):return None
+    return value[:500]
+
+
+def personal_action_requested(content):
+    body=command_body(content).rstrip('。！!')
+    return any(re.fullmatch(pattern,body) for pattern in (
+        r'調査タスクを追加[、,:：\s]+.+',r'目標を追加[、,:：\s]+.+',r'目標\d+を\d+進めて',
+        r'(?:今日の)?(?:会話を)?日記(?:を|に)?(?:作って|保存して)',
+        r'(?:毎日)?\d{1,2}時(?:\d{1,2}分)?に.+(?:知らせて|通知して|リマインドして)'))
+
+
 def text(value, limit=500, required=False):
     if not isinstance(value, str) or len(value) > limit or any(ord(c) < 32 and c not in '\n\r\t' for c in value):
         raise ValueError('Invalid text')
@@ -164,6 +188,7 @@ def save_diary(c, day, content):
 
 
 def edit_goal(c, body):
+    if not c.in_transaction:c.execute('BEGIN IMMEDIATE')
     if body.get('delete'):
         c.execute('DELETE FROM goals WHERE id=?', (int(body['id']),));return
     if body.get('id'):

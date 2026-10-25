@@ -1,0 +1,57 @@
+{
+  "ok": true,
+  "elapsed_seconds": 302,
+  "minutes": 5,
+  "cycles": 20,
+  "privateChecks": 4,
+  "backups": 1,
+  "transcriptions": 0,
+  "initiatives": 0,
+  "errors": [],
+  "samples": [
+    {
+      "minute": 1,
+      "cycle": 5,
+      "jsHeapMB": 2,
+      "nodes": 2271,
+      "gc": false,
+      "privateChecks": 1,
+      "backups": 0,
+      "transcriptions": 0,
+      "initiatives": 0
+    },
+    {
+      "minute": 2,
+      "cycle": 9,
+      "jsHeapMB": 2,
+      "nodes": 2001,
+      "gc": false,
+      "privateChecks": 1,
+      "backups": 0,
+      "transcriptions": 0,
+      "initiatives": 0
+    },
+    {
+      "minute": 3,
+      "cycle": 13,
+      "jsHeapMB": 2,
+      "nodes": 1774,
+      "gc": false,
+      "privateChecks": 2,
+      "backups": 0,
+      "transcriptions": 0,
+      "initiatives": 0
+    },
+    {
+      "minute": 4,
+      "cycle": 17,
+      "jsHeapMB": 3,
+      "nodes": 2401,
+      "gc": false,
+      "privateChecks": 3,
+      "backups": 0,
+      "transcriptions": 0,
+      "initiatives": 0
+    }
+  ]
+}

@@ -49,11 +49,103 @@ class AppTests(unittest.TestCase):
         s=self.post('clear',{})
         self.assertTrue(all(not s[k] for k in ('messages','memories','health','news')))
 
+    def test_disabling_long_term_memory_stops_using_saved_memories(self):
+        self.post('memory', {'content':'MEMORY_DISABLED_SENTINEL'})
+        self.post('settings', {'remember':'false'})
+        try:
+            with patch.dict(os.environ, {'OPENAI_API_KEY':'test'}), patch.object(server,'respond',return_value=Answer('返答')) as call:
+                self.post('chat', {'content':'こんにちは'})
+                self.assertNotIn('MEMORY_DISABLED_SENTINEL',json.dumps(call.call_args.args[0]))
+            self.assertEqual(len(server.state()['memories']),1)
+        finally:self.post('settings', {'remember':'true'})
+
+    def test_concurrent_goal_increments_are_not_lost(self):
+        from concurrent.futures import ThreadPoolExecutor
+        s=self.post('goals',{'title':'同時操作の読書','target':100,'unit':'ページ'});gid=s['goals'][0]['id']
+        def increment(_):
+            with server.connect() as c:server.companion.edit_goal(c,{'id':gid,'increment':1})
+        with ThreadPoolExecutor(max_workers=16) as pool:list(pool.map(increment,range(64)))
+        goal=next(g for g in server.state()['goals'] if g['id']==gid)
+        self.assertEqual(goal['progress'],64)
+
+    def test_each_chat_response_contains_its_own_answer_under_concurrent_requests(self):
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        original=server.state;entered,release=threading.Event(),threading.Event()
+        def snapshot():
+            result=original()
+            if result['messages'] and result['messages'][-1]['content']=='Aの返答' and not entered.is_set():
+                entered.set();release.wait(3)
+            return result
+        def generate(s):return Answer('Aの返答' if s['messages'][-1]['content']=='Aの発言' else 'Bの返答')
+        with patch.object(server,'state',side_effect=snapshot),patch.object(server,'generate_reply',side_effect=generate),ThreadPoolExecutor(max_workers=2) as pool:
+            a=pool.submit(self.post,'chat',{'content':'Aの発言'})
+            try:
+                self.assertTrue(entered.wait(2))
+                b=pool.submit(self.post,'chat',{'content':'Bの発言'});time.sleep(.04)
+                self.assertFalse(b.done())
+            finally:release.set()
+            first,second=a.result(timeout=3),b.result(timeout=3)
+        self.assertEqual(first['messages'][-1]['content'],'Aの返答')
+        self.assertEqual(second['messages'][-1]['content'],'Bの返答')
+        self.assertLess(first['snapshot_revision'],second['snapshot_revision'])
+
+    def test_state_snapshots_have_increasing_revisions_and_are_read_only(self):
+        first,second=server.state(),server.state()
+        self.assertLess(first['snapshot_revision'],second['snapshot_revision'])
+        self.assertEqual(first['messages'],second['messages']);self.assertEqual(first['settings'],second['settings'])
+
+    def test_clear_waits_for_an_earlier_response_from_another_tab(self):
+        from concurrent.futures import ThreadPoolExecutor
+        entered,release=threading.Event(),threading.Event()
+        def delayed(*args,**kwargs):
+            entered.set();release.wait(3);return '削除前に開始した返答'
+        with patch.object(server,'generate_reply',side_effect=delayed),ThreadPoolExecutor(max_workers=2) as pool:
+            chat=pool.submit(self.post,'chat',{'content':'削除前の発言'})
+            self.assertTrue(entered.wait(2))
+            clear=pool.submit(self.post,'clear',{})
+            try:
+                import time
+                time.sleep(.04);self.assertFalse(clear.done())
+            finally:release.set()
+            chat.result(timeout=3);clear.result(timeout=3)
+        self.assertEqual(server.state()['messages'],[])
+
+    def test_backup_is_a_consistent_database_copy_without_environment_credentials(self):
+        import sqlite3
+        from pathlib import Path
+        self.post('memory', {'content':'バックアップで守る記憶'})
+        self.post('goals', {'title':'読む','target':3,'unit':'冊'})
+        with patch.dict(os.environ, {'OPENAI_API_KEY':'BACKUP_MUST_NOT_INCLUDE_THIS_KEY'}):
+            with urllib.request.urlopen(self.base+'/api/backup') as response:
+                data=response.read();self.assertEqual(response.headers['Content-Type'],'application/vnd.sqlite3')
+                self.assertIn('attachment;',response.headers['Content-Disposition'])
+        self.assertNotIn(b'BACKUP_MUST_NOT_INCLUDE_THIS_KEY',data)
+        with tempfile.TemporaryDirectory() as folder:
+            target=Path(folder)/'restored.sqlite3';target.write_bytes(data)
+            with sqlite3.connect(target) as c:
+                self.assertEqual(c.execute('PRAGMA integrity_check').fetchone()[0],'ok')
+                self.assertEqual(c.execute('SELECT content FROM memories').fetchone()[0],'バックアップで守る記憶')
+                self.assertEqual(c.execute('SELECT title FROM goals').fetchone()[0],'読む')
+        self.assertEqual(len(server.state()['memories']),1)
+
     def test_persona_modes_and_feedback_apply_without_api(self):
         with patch.object(server,'generate_reply') as model:
             s=self.post('chat',{'content':'ただ聞いてほしい'});self.assertEqual(s['settings']['conversation_mode'],'listen')
             self.post('chat',{'content':'一緒に考えたい'});self.post('chat',{'content':'もっと短く'});self.post('chat',{'content':'質問は少なめで'});model.assert_not_called()
         self.assertEqual(server.settings()['conversation_mode'],'think');self.post('settings',{'reply_style':'normal'})
+
+    def test_remembering_questions_are_conversation_and_private_actions_remain_local(self):
+        with patch.object(server,'generate_reply',return_value=Answer('前の話を確認するね。')) as model:
+            s=self.post('chat',{'content':'アスター、覚えている？'})
+            self.assertEqual(s['memories'],[]);model.assert_called_once()
+        with patch.object(server,'generate_reply') as model:
+            for content in ('ASTER、覚えて：保存しない秘密','アスター、目標を追加、読書を10ページ','アスター、車で名古屋駅までナビして'):
+                result=self.post('temporary',{'messages':[{'role':'user','content':content}]})
+                self.assertIn('一時チャットでは',result['answer'])
+            model.assert_not_called()
+        with patch.object(server,'generate_reply',return_value=Answer('日記の気分について聞くよ。')) as model:
+            self.post('temporary',{'messages':[{'role':'user','content':'日記を書いた気分について話したい'}]});model.assert_called_once()
 
     def test_private_chat_does_not_write_history_memories_or_preferences(self):
         self.post('memory',{'content':'通常の会話だけの記憶'});self.post('settings',{'preferred_name':'通常の名前'});before=server.settings()
@@ -114,7 +206,7 @@ class AppTests(unittest.TestCase):
         photo='data:image/png;base64,'+base64.b64encode(b'\x89PNG\r\n\x1a\n'+bytes(30)).decode()
         with patch.dict(os.environ,{'OPENAI_API_KEY':'test'}),patch.object(server,'respond',return_value=Answer('写真の返答')) as call:
             self.post('chat',{'content':'この写真を見て','image':photo})
-            parts=call.call_args.args[0][-1]['content'];self.assertEqual(parts[0]['type'],'input_text');self.assertEqual(parts[1],{'type':'input_image','image_url':photo,'detail':'low'})
+            parts=call.call_args.args[0][-1]['content'];self.assertEqual(parts[0]['type'],'input_text');self.assertEqual(parts[1],{'type':'input_image','image_url':photo,'detail':'high'})
 
     def test_model_output_and_quoted_commands_do_not_create_personal_records(self):
         with patch.object(server,'generate_reply',return_value='目標を追加、散歩を3回。毎日20時に通知して。'):

@@ -19,6 +19,6 @@ const {chromium}=require('playwright');const assert=require('node:assert/strict'
   }
   assert.equal(initiatives,1);assert.equal(await page.evaluate(()=>voice.proactiveCount),1);assert.deepEqual(errors,[]);
   await page.evaluate(()=>window.savedTracks=microphone.stream.getTracks());await page.locator('#voice-stop').click();assert.equal(await page.evaluate(()=>window.savedTracks.every(t=>t.readyState==='ended')),true);assert.equal(await page.evaluate(()=>Number(document.getElementById('voice-scope').dataset.level)),0);
-  const result={elapsed_seconds:Math.round((Date.now()-start)/1000),minutes,transcriptions,initiatives,errors,samples};fs.writeFileSync('/workspace/aster/soak-summary.json',JSON.stringify(result,null,2));console.log('ASTER endurance PASS: real-time 10-minute quiet period, one proactive utterance, no silence uploads, live capture, bounded heap and complete track release.');
+  const result={elapsed_seconds:Math.round((Date.now()-start)/1000),minutes,transcriptions,initiatives,errors,samples};fs.writeFileSync(process.env.ASTER_TEST_RESULT||'/tmp/aster-soak.json',JSON.stringify(result,null,2));console.log('ASTER endurance PASS: real-time 10-minute quiet period, one proactive utterance, no silence uploads, live capture, bounded heap and complete track release.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

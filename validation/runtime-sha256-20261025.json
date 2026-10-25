@@ -1,0 +1,21 @@
+{
+  "launch.py": "4d6e00a33317654782aae0e9149571711216ba5ec2d06bf68f0f6dfa27b593c8",
+  "integrations.py": "9b703217cf1f63c62e7fd2d7fa9d63f53a94a1de11c07d5805d2857bac84f5b8",
+  "preferences.py": "24ec0d7d87dbc1cb2a69505d5590b4dab54ef2b0897968fe601a10a897a53e02",
+  "research.py": "b3ae73e4c88840fcf0a6f2a6faf066539655f3719fec408834c1353eb7cc6a98",
+  "public_sources.py": "b0c7cf6a0f2a6ac5fb60b1778d672918441ab370f1aaf48b0ef37c53e21a8d7d",
+  "autonomy.py": "2c48f186a796477c4faf3b05cf4cb0d63b474adfa830712991fc8c0135f43944",
+  "companion.py": "e70346ada34b6fa3bab6e482a6b8bff6ada325135682bdc46a3c1aefccc4f20c",
+  "server.py": "87c93707499e1f9bee71df6955c2148da8f3b6e2e8670029e8f46ba5bbf449c9",
+  "static/style.css": "470da6e8f52666dc2e6c5eaa396a8b331ee6b9ce91717ba3ca7f6a3c972a4115",
+  "static/scope.js": "cd12497a51e35d2ff447400cf4fa64b950b56f958f73fdb488d03c4c510adfdb",
+  "static/mic-worklet.js": "91bf13e944d14e44cb641800276370fcc118bc07ac428a6aa22b29b689e7fe8e",
+  "static/input.js": "95c3562776ee80d985786b5e1422bfc4bd6c939828ce09ed5541d5e89073d25c",
+  "static/audio.js": "cdcf950a2180164b4023748a61ae926bb6b6d82ccb2150ce49ea625ed72b027a",
+  "static/voice.js": "f8b468ef71d93c4d59823c5fd7c51a5dcadf00a0c62af286e99373ce30bf0d14",
+  "static/app.js": "2553ec656da8c7b04ffec437f4aa043956cfcfc6625ebede574649a58bed25b9",
+  "static/handsfree.js": "4ecbc33e349d0d697e4506746f78bd5c7e1fd528a0f5757f0f0c16eb89a3dd4f",
+  "static/companion.js": "21cad730f5cd4767e4e77e9e995bbda826995001787dee5bdd98d0302b3f2796",
+  "static/icon.svg": "fbae15985e260a9d36e6c5fddf83466f887bb6fe6f61a24a4a1acab090df970a",
+  "static/index.html": "9c94815ab3fb3e3c934ab5420adf96752a106f926fddcc190cf46dd95a2569e8"
+}

@@ -29,7 +29,13 @@ class ResearchTests(unittest.TestCase):
             self.assertIn('検索していない',payload['messages'][1]['content']);self.assertEqual(payload['messages'][-1]['content'][1]['type'],'image_url');self.assertFalse(payload['store'])
         with patch.dict(os.environ,{'OPENAI_API_KEY':'test','ASSISTANT_API_KEY':''}),patch.object(research.urllib.request,'urlopen',side_effect=failure) as call:
             with self.assertRaises(research.ResearchError):research.respond([],require_search=True)
-            self.assertEqual(call.call_count,1)
+            self.assertEqual(call.call_count,2)
+    def test_compatibility_quota_error_is_not_misreported_as_invalid_credentials(self):
+        failures=[urllib.error.HTTPError('https://api.openai.com',code,'never-display-provider-secret',{},None) for code in (401,429)]
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'test','ASSISTANT_API_KEY':''}),patch.object(research.urllib.request,'urlopen',side_effect=failures):
+            with self.assertRaises(research.ResearchError) as error:research.respond([{'role':'user','content':'こんにちは'}])
+            self.assertIn('利用枠',str(error.exception));self.assertNotIn('認証',str(error.exception));self.assertNotIn('secret',str(error.exception))
+
     def test_sources_deduplicated_citations_preserved_and_markup_not_spoken(self):
         answer = research.parse_response(result())
         self.assertEqual(answer, '調査結果')

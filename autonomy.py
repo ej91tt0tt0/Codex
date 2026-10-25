@@ -11,8 +11,10 @@ SWEEP_LOCK=threading.Lock()
 def init_schema(c):
     c.executescript('''
     CREATE TABLE IF NOT EXISTS agent_tasks(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, instruction TEXT, interval_hours INTEGER, enabled INTEGER, next_run TEXT, status TEXT DEFAULT '待機', last_error TEXT DEFAULT '');
-    CREATE TABLE IF NOT EXISTS agent_runs(id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER, automatic INTEGER, started TEXT, finished TEXT, answer TEXT, sources TEXT DEFAULT '[]', searches INTEGER DEFAULT 0, error TEXT DEFAULT '');
+    CREATE TABLE IF NOT EXISTS agent_runs(id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER, automatic INTEGER, started TEXT, finished TEXT, answer TEXT, sources TEXT DEFAULT '[]', searches INTEGER DEFAULT 0, error TEXT DEFAULT '', instruction TEXT DEFAULT '');
     ''')
+    if 'instruction' not in {row[1] for row in c.execute('PRAGMA table_info(agent_runs)')}:
+        c.execute("ALTER TABLE agent_runs ADD COLUMN instruction TEXT DEFAULT ''")
 
 def edit_task(c,body):
     if body.get('delete'):
@@ -28,6 +30,7 @@ def edit_task(c,body):
         if isinstance(interval,bool) or interval not in (1,6,24) or not isinstance(enabled,bool):raise ValueError('Invalid task setting')
         last=c.execute('SELECT started FROM agent_runs WHERE task_id=? ORDER BY id DESC LIMIT 1',(existing['id'],)).fetchone()
         next_run=(datetime.fromisoformat(last['started'])+timedelta(hours=interval)).isoformat() if last else existing['next_run']
+        if instruction!=existing['instruction']:next_run=datetime.now(timezone.utc).isoformat()
         c.execute('UPDATE agent_tasks SET title=?,instruction=?,interval_hours=?,enabled=?,next_run=? WHERE id=?',(title,instruction,interval,int(enabled),next_run,existing['id']));return
     title,instruction=text(body.get('title'),100,True),text(body.get('instruction'),1000,True)
     interval=body.get('interval_hours',6)
@@ -59,12 +62,13 @@ def run_task(connect,respond,task_id,automatic=False,now=None):
         if automatic:
             if datetime.fromisoformat(task['next_run'])>now:return None
             start=now.astimezone(JST).replace(hour=0,minute=0,second=0,microsecond=0).astimezone(timezone.utc).isoformat()
-            count=c.execute('SELECT COUNT(*) FROM agent_runs WHERE automatic=1 AND started>=?',(start,)).fetchone()[0]
+            end=(now.astimezone(JST)+timedelta(days=1)).replace(hour=0,minute=0,second=0,microsecond=0).astimezone(timezone.utc).isoformat()
+            count=c.execute('SELECT COUNT(*) FROM agent_runs WHERE automatic=1 AND started>=? AND started<?',(start,end)).fetchone()[0]
             if count>=int(config.get('agent_daily_limit','3')):
                 tomorrow=(now.astimezone(JST)+timedelta(days=1)).replace(hour=0,minute=0,second=0,microsecond=0).astimezone(timezone.utc)
                 c.execute("UPDATE agent_tasks SET status='本日の自動実行上限で待機',next_run=? WHERE id=?",(tomorrow.isoformat(),task['id']));return None
-        previous=c.execute("SELECT answer,started,sources FROM agent_runs WHERE task_id=? AND error='' AND finished IS NOT NULL ORDER BY id DESC LIMIT 1",(task['id'],)).fetchone()
-        run_id=c.execute('INSERT INTO agent_runs(task_id,automatic,started) VALUES (?,?,?)',(task['id'],int(automatic),stamp)).lastrowid
+        previous=c.execute("SELECT answer,started,sources FROM agent_runs WHERE task_id=? AND instruction=? AND error='' AND finished IS NOT NULL ORDER BY id DESC LIMIT 1",(task['id'],task['instruction'])).fetchone()
+        run_id=c.execute('INSERT INTO agent_runs(task_id,automatic,started,instruction) VALUES (?,?,?,?)',(task['id'],int(automatic),stamp,task['instruction'])).lastrowid
         c.execute("UPDATE agent_tasks SET next_run=?,status='調査中',last_error='' WHERE id=?",((now+timedelta(hours=task['interval_hours'])).isoformat(),task['id']))
     error='';answer=''
     try:
@@ -81,7 +85,9 @@ def run_task(connect,respond,task_id,automatic=False,now=None):
         with connect() as c:
             c.execute('UPDATE agent_runs SET finished=?,answer=?,sources=?,searches=?,error=? WHERE id=?',
                       (datetime.now(timezone.utc).isoformat(),str(answer),json.dumps(getattr(answer,'sources',[]),ensure_ascii=False),getattr(answer,'searches',0),error,run_id))
-            c.execute('UPDATE agent_tasks SET status=?,last_error=? WHERE id=?',('取得失敗' if error else '完了・次回待機',error,task['id']))
+            current=c.execute('SELECT instruction FROM agent_tasks WHERE id=?',(task['id'],)).fetchone()
+            changed=current and current['instruction']!=task['instruction']
+            c.execute('UPDATE agent_tasks SET status=?,last_error=? WHERE id=?',('目的変更・次回待機' if changed else '取得失敗' if error else '完了・次回待機','' if changed else error,task['id']))
             c.execute('DELETE FROM agent_runs WHERE id NOT IN (SELECT id FROM agent_runs ORDER BY id DESC LIMIT 200) AND finished IS NOT NULL')
     if error:raise ResearchError(error)
     return answer

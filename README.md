@@ -1,15 +1,32 @@
-# ASTER（アスター）
+# ASTER（アスター）1.1
 
-声で話し、必要な情報を調べ、選んだ記憶や予定を管理する個人向けAIアシスタント。旧「よりそい」を改名し、会話と自律調査を統合しました。Python 3.12以上の標準ライブラリで動くWindows向けローカルWebアプリです。
+声で話し、必要な情報を調べ、選んだ記憶や予定を管理する個人向けAIアシスタント。会話と自律調査を統合しました。Python 3.12以上の標準ライブラリで動くWindows向けローカルWebアプリです。
 
 [Windows更新版をダウンロード](https://github.com/ej91tt0tt0/Codex/raw/refs/heads/main/downloads/aster-windows.zip)
 
+[画面プレビュー](downloads/aster-preview.png) · [12秒のデモ（AI合成音声つき）](https://github.com/ej91tt0tt0/Codex/raw/refs/heads/main/downloads/aster-demo-12s.mp4)
+
+## 1.1の改善
+
+- NieR:Automataの雰囲気を参考に、生成り・墨色・くすんだオリーブ、明朝の見出し、細い罫線とオリジナルの星形マークへ刷新。画面・挨拶・起動表示をASTERに統一。
+- 会話の開始・交代・停止を常に押せる位置へ配置。PC・スマホに対応し、メニューの長い画面でもマイクの状態を確認可能。
+- 返答のコピー・再読み上げと停止、Ctrl＋Enter送信。返信中に書いた次の文章、追加発言、編集中の設定、履歴のスクロールやフォーカスを保持。
+- マイクの選択、切断された機器から既定マイクへの切り替え、停止・通信タイムアウト時の音声資源の解放。
+- 一時チャット中の写真切り替えや送信失敗後の再送を改善。極小画像は最低256pxへ整形し、画像の観察を会話の気分から分離。
+- 長期記憶オフ時は保存・参照を停止。「覚えている？」という質問を保存指示と誤判定しない。
+- 更新前のSQLiteバックアップ、同時操作での進捗の保持、古い状態による上書きの防止、別タブの応答中のデータ削除、同じデータを使うサーバーの二重起動防止。
+- 広いWeb検索が使えない接続でも、気象庁の予報と公開ニュースRSSをAIが選んで取得。取得方法・発表日時・未確認の範囲を表示。タスクの目的変更前の結果を別目的の差分比較へ使わない。
+
+デモの聞き取り・返答はサンプルで、表示したAI合成音声を再生しています。実APIの接続試験とは区別しています。デザインの参照: https://www.jp.square-enix.com/nierautomata/
+
 ## 起動・更新
 
-1. 旧版を黒い画面でCtrl+Cを押して終了します。
+1. 旧版を黒い画面でCtrl+Cを押して終了し、旧版のブラウザタブも閉じます。更新前に `.data` をコピーして残すこともできます。
 2. ZIPをすべて展開し、中身を既存のアプリフォルダーへ上書きします。既存の `.data` は削除しません。ZIP内のフォルダー名 `yorisoi` は旧版との互換性のため維持しています。
 3. `start_windows.bat` を開き、OpenAI APIキーを入力してEnter。入力は非表示で、ファイルに保存しません。
-4. Chrome/Edgeでマイクを許可します。初回は「音声会話を開始」を押してください。
+4. Chrome/Edgeでマイクを許可します。初回は「音声会話を開始」を押してください。画面下部に `ASTER 1.1` が表示されます。
+
+同じデータのASTERが既に動いている場合は、その起動アドレスを再利用します。更新やAPIキー変更時は、元の黒い画面を終了してから起動してください。
 
 Pythonの導入: https://www.python.org/downloads/windows/ 。`Add python.exe to PATH` を有効にします。キーを空欄にすると記録モードです。音声の高精度認識・自然音声・AI回答・写真理解・Web調査には有効なAPIキーと利用枠が必要です。
 
@@ -28,7 +45,7 @@ Pythonの導入: https://www.python.org/downloads/windows/ 。`Add python.exe to
 | 避けたい話題 | AI側から持ち出さないよう指定。本人が話し始めた場合はその意向を優先 |
 | 音声会話 | 常時待ち受け、追加・訂正の保持、意味のまとまりを話し終えてから交代 |
 | 音声と文字 | 同じPC内の同じ履歴を使って切り替え。文字モードはマイクと読み上げを停止 |
-| 写真の会話 | JPEG/PNG/WebPを選択。ブラウザで縮小・再エンコードしてOpenAIへ送信。画像ファイルは保存しない |
+| 写真の会話 | JPEG/PNG/WebPを選択。ブラウザで長辺256〜1280pxを目安に大きさを調整し、再エンコードしてOpenAIへ送信。画像ファイルは保存しない |
 | 一日の振り返り | 希望したときだけ、その日のことをゆっくり話す |
 | 会話から日記 | 日本時間の日付で本人の発言だけを材料に下書き。確認・修正後に保存、編集・削除・書き出し |
 | 趣味の深掘り | 登録した趣味や今の話題を、希望に合わせて広げる |
@@ -60,6 +77,8 @@ Pythonの導入: https://www.python.org/downloads/windows/ 。`Add python.exe to
 
 高精度音声はAudioWorkletで発話区間を検出し、`gpt-4o-transcribe` へ送ります。無音だけでは認識APIを呼びません。自然音声は `gpt-4o-mini-tts` / `ash`、速度1.12倍、青年らしい落ち着いた声を指定します。表示用の絵文字は読み上げに含めません。
 
+マイクはメニューで選べます。選択はこのブラウザ内だけに保存し、選んだ機器が見つからなければシステム既定へ戻します。権限拒否時は別の機器を自動で試しません。音声生成・認識の通信待ちが停止した場合はタイムアウトで解放し、認識失敗は15秒待ってから新しい発話で再開します。失敗した録音を自動再送しません。
+
 短い返答は句読点で分割せず最後まで話し、長い説明は意味のまとまりの段落で交代します。「会話を渡す」は現在のまとまりまで、「停止」や認識後の「マイクを止めて」は即時停止です。自動声かけは既定10分の沈黙後に1回だけ。返事がなければ休止して待ち受けます。
 
 許可済みの高精度認識では、同じ起動アドレスで次回の自動再開が可能です。起動ポートをPC内へ保存し、対応ブラウザで同じアプリの複数タブが二重にマイクを使わないようにしています。周囲の人やテレビの声にも反応し得ます。ブラウザ終了・休止・PCスリープ・マイク切断中の待ち受けは保証できません。
@@ -67,6 +86,12 @@ Pythonの導入: https://www.python.org/downloads/windows/ 。`Add python.exe to
 一時チャットは直近200発言までを画面内メモリーに保持し、モデルには直近19発言を送ります。通常の履歴・長期記憶・体調・プロフィールを材料として読み込まず、口調などの会話設定と避けたい話題は利用します。呼び方もその場だけ変更できます。Web検索や永続保存操作は使わず、モード終了・再読み込みで内容を破棄します。OpenAIへの送信は行われ、サービス側のデータ保持・利用規約は別です。`store: false` を指定します。
 
 リマインダーはブラウザが開いている間、約15秒ごとの確認で通知します。終了・スリープ中や時刻どおりの配信は保証しません。再開時は未表示の直近分を示し、見逃した繰り返し分を大量に通知しません。ブラウザ通知の権限は希望したときだけ求め、拒否時もアプリ内表示を使います。端末間同期・ログイン・プッシュ配信は未実装です。
+
+## バックアップと引き継ぎ
+
+メニューの「記憶・データ管理」からバックアップを保存できます。会話・体調・選んだ記憶・日記・目標・通知・設定・調査履歴を含む、一貫したSQLiteのコピーです。起動時の環境変数に入れたAPIキーはDBへ保存しません。バックアップには個人の記録があるため、自分のPCで保管します。
+
+復元はアプリとタブを終了してから行います。既存の `.data/assistant.sqlite3` を別の場所へ退避し、バックアップを `assistant.sqlite3` に改名して `.data` へ置き、起動します。一時チャットはバックアップの対象に含まれません。
 
 ## 音声の例
 
@@ -87,7 +112,8 @@ Pythonの導入: https://www.python.org/downloads/windows/ 。`Add python.exe to
 | `server.py` | ローカルHTTP、AI接続、個人データ保存、API、定時処理 |
 | `companion.py` | 会話設定、日記、目標、通知、画像検証、過去の会話検索 |
 | `autonomy.py` | 読み取り専用の自律調査、実行予約、予算、履歴 |
-| `research.py` | Responses API、Web検索、出典・失敗の検証 |
+| `research.py` | Responses APIとChat Completions、限定した情報取得、出典・失敗の検証 |
+| `public_sources.py` | 気象庁と公開ニュースRSSの読み取り。任意URLの取得は行わない |
 | `static/voice.js` | 会話の交代、発言待ち行列、声かけの抑制 |
 | `static/input.js` | 音声入力・発話検知・WAV・認識送信 |
 | `static/companion.js` | 会話モード、一時チャット、写真、日記・目標・通知・調査画面 |
@@ -98,6 +124,18 @@ Pythonの導入: https://www.python.org/downloads/windows/ 。`Add python.exe to
 
 起動は `python launch.py`、テスト用は `python launch.py --no-browser --no-key`。アプリは127.0.0.1へ固定し、Host/OriginとJSON形式を検証します。ユーザー認証はないため、公開サーバーへは配置しないでください。データは `.data/assistant.sqlite3`。バンドルは明示ファイルリストから作り、キー・DB・実際の個人データを含めません。
 
-自動テスト: `python -m unittest discover -s tests -v` と `node --test tests/test_voice.cjs tests/test_input.cjs tests/test_audio.cjs tests/test_handsfree.cjs`。ブラウザ試験はPlaywrightとChromiumがある開発環境向けです。検証の範囲は [VALIDATION.md](VALIDATION.md) を参照してください。
+自動テスト: `python -m unittest discover -s tests -v` と `node --test tests/test_voice.cjs tests/test_input.cjs tests/test_audio.cjs tests/test_handsfree.cjs`。ブラウザ試験はNode・Playwright・Chromiumがある開発環境で実行します。アクセシビリティ試験にはaxe-coreも必要です（`AXE_CORE_PATH` で `axe.min.js` を指定可能）。
 
-互換接続: Responses APIが401で利用できない場合、検索を必須にしない会話はChat Completionsで継続します。画像形式も変換します。互換応答ではWeb検索をしたと扱わず、最新情報を確認できないことを伝えます。検索必須の自律タスクは失敗を記録し、通常会話へ置き換えて成功扱いにはしません。
+```sh
+python tests/run_browser.py companion
+python tests/run_browser.py usability
+python tests/run_browser.py accessibility --result /tmp/aster-accessibility.json
+python tests/run_browser.py soak --minutes 65 --result /tmp/aster-soak.json
+python tests/run_browser.py endurance --minutes 110 --result /tmp/aster-endurance.json
+```
+
+ブラウザ試験は一時データフォルダーを使い、サーバーから外部APIへの通信を遮断します。AIの返答・音声は模擬、AudioWorkletとマイクのトラック・タイマーはChromiumで実行します。`--app-root` で展開したパッケージも試験できます。検証の範囲は [VALIDATION.md](VALIDATION.md) を参照してください。
+
+互換接続: Responses APIが401で利用できない場合、Chat Completionsで会話・画像入力を継続します。情報取得を有効にした場合は、AIが気象庁の愛知県西部予報・Googleニュースの公開RSSから必要な取得を選びます。1回の応答で取得は最大2回、モデル呼び出しも最大2回です。検索語・期間だけを受け取り、モデルが指定した任意URLを開きません。
+
+この補助経路が確認できるのは広域予報とニュースの見出し・配信要約です。一般Web全体の検索、記事本文、現在の鉄道運行・道路の実況を確認したとは扱いません。出典に取得方法・発表日時を表示し、取得に失敗した必須調査は失敗として記録します。一時チャットからはこの経路も呼びません。ツール非対応の会話モデルでは、取得をしたと扱わず通常会話だけを続けます。

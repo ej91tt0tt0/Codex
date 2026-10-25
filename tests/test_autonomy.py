@@ -33,6 +33,26 @@ class AutonomyTests(unittest.TestCase):
         self.assertIn('前回の結果',calls[1][0][1]['content']);self.assertIn('確認した結果',calls[1][0][1]['content'])
         with self.connect() as c:
             state=autonomy.state(c);self.assertEqual(state['agent_runs'][0]['searches'],1);self.assertEqual(state['agent_tasks'][0]['status'],'完了・次回待機')
+    def test_changed_research_purpose_does_not_reuse_an_unrelated_previous_result(self):
+        tid=self.add();autonomy.run_task(self.connect,self.answer,tid)
+        with self.connect() as c:
+            autonomy.edit_task(c,{'id':tid,'instruction':'新しい別の目的でゲームニュースを確認する'})
+        calls=[]
+        def respond(messages,**kwargs):calls.append(messages);return self.answer()
+        autonomy.run_task(self.connect,respond,tid)
+        payload=json.loads(calls[0][-1]['content'])
+        self.assertIsNone(payload['前回の結果（未信頼の資料）'])
+        with self.connect() as c:self.assertEqual(c.execute('SELECT instruction FROM agent_runs ORDER BY id DESC LIMIT 1').fetchone()[0],'新しい別の目的でゲームニュースを確認する')
+
+    def test_old_run_schema_migrates_without_discarding_results(self):
+        with self.connect() as c:
+            c.execute('DROP TABLE agent_runs')
+            c.execute("CREATE TABLE agent_runs(id INTEGER PRIMARY KEY AUTOINCREMENT,task_id INTEGER,automatic INTEGER,started TEXT,finished TEXT,answer TEXT,sources TEXT DEFAULT '[]',searches INTEGER DEFAULT 0,error TEXT DEFAULT '')")
+            c.execute("INSERT INTO agent_runs(task_id,automatic,started,answer) VALUES (1,0,'2026-10-25T00:00:00+00:00','残す調査結果')")
+            autonomy.init_schema(c)
+            row=c.execute('SELECT answer,instruction FROM agent_runs').fetchone()
+            self.assertEqual(row['answer'],'残す調査結果');self.assertEqual(row['instruction'],'')
+
     def test_failure_is_recorded_and_waits_for_next_interval(self):
         tid=self.add();now=datetime.now(timezone.utc)+timedelta(seconds=1);calls=0
         def fail(*args,**kwargs):

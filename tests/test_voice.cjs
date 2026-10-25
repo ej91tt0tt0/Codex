@@ -172,3 +172,25 @@ test('named feedback and local tool requests stay separate from later conversati
  const first=v.ask('先の質問');await v.ask('アスター、もっと短く');await v.ask('アスター、目標を追加、読書を10ページ');await v.ask('映画のことも話したい');release('先の返答');await first;await tick();await tick();
  assert.deepEqual(sent,['先の質問','アスター、もっと短く','アスター、目標を追加、読書を10ページ','映画のことも話したい']);v.stop();
 });
+test('explicit replay works in text mode without recording a new turn or starting a microphone',async()=>{
+ let sent=0;const {v,spoken,recognizers}=setup(async()=>{sent++;});v.textMode=true;v.readEnabled=false;
+ const pending=v.replay('保存済みの返答');assert.equal(spoken.length,1);spoken[0].onend();assert.equal(await pending,true);
+ assert.equal(sent,0);assert.equal(recognizers.length,0);assert.equal(v.active,false);assert.equal(v.readEnabled,false);v.stop();
+});
+test('replay declines to replace an ongoing reply',async()=>{
+ const {v,spoken}=setup();const first=v.say('話している途中');assert.equal(await v.replay('割り込み'),false);assert.equal(spoken.length,1);spoken[0].onend();await first;v.stop();
+});
+test('replayed speech can be stopped in text mode without changing microphone preference',async()=>{
+ const {v,statuses}=setup();v.textMode=true;v.readEnabled=false;const pending=v.replay('もう一度聞く返答');assert.equal(v.replaying,true);
+ v.stopReplay();assert.equal(await pending,false);assert.equal(v.replaying,false);assert.equal(v.active,false);assert.equal(v.readEnabled,false);assert.match(statuses.at(-1),/止めた/);v.stop();
+});
+test('typed additions during a text response are drained even with the microphone off',async()=>{
+ const sent=[];let release;const {v}=setup(text=>{sent.push(text);return sent.length===1?new Promise(r=>release=r):Promise.resolve('まとめた返答');});
+ v.textMode=true;v.readEnabled=false;const first=v.ask('最初の相談');await v.ask('追記したいこと');await v.ask('さっきの内容の訂正');
+ release('最初の返答');await first;await tick();assert.deepEqual(sent,['最初の相談','追記したいこと\nさっきの内容の訂正']);assert.equal(v.active,false);assert.equal(v.pendingInputs.length,0);v.stop();
+});
+test('the additional-input queue is bounded and refuses rather than discarding new text',async()=>{
+ let release;const {v}=setup(()=>new Promise(r=>release=r));v.readEnabled=false;const first=v.ask('最初');
+ for(let i=0;i<6;i++)assert.equal(await v.ask('追加'+i),true);
+ assert.equal(await v.ask('まだ送らない内容'),false);assert.equal(v.pendingInputs.length,6);v.stop();release('停止後の応答');await first;assert.equal(v.pendingInputs.length,0);
+});

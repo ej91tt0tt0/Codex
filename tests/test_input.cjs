@@ -35,12 +35,39 @@ test('transcription failure keeps capture available and enforces a retry cooldow
  input.retryAt=0;input.queue.push(encodeWav([packet(.1)],24000));await input.drain(1);assert.deepEqual(texts,['再接続後の発言']);input.stop();
 });
 test('late microphone permission cannot revive capture after stop or kill a newer session',async()=>{
- const saved={navigator:globalThis.navigator,AudioContext:globalThis.AudioContext,AudioWorkletNode:globalThis.AudioWorkletNode};let first;let calls=0;
+ const saved={navigator:globalThis.navigator,AudioContext:globalThis.AudioContext,AudioWorkletNode:globalThis.AudioWorkletNode};let first;let calls=0;const requests=[];
  const stream=()=>({stopped:false,getTracks(){return[{stop:()=>this.stopped=true}]}});const old=stream(),current=stream();
  const node=()=>({connect(){},disconnect(){}});
  class Context{constructor(){this.sampleRate=24000;this.state='running';this.destination={};this.audioWorklet={addModule:async()=>{}};}async resume(){}async close(){this.state='closed';}createAnalyser(){return{...node(),frequencyBinCount:128,getByteFrequencyData(){}};}createMediaStreamSource(){return node();}createGain(){return{...node(),gain:{value:1}};}}
  class Worklet{constructor(){this.port={};}connect(){}disconnect(){}}
- Object.defineProperty(globalThis,'navigator',{value:{mediaDevices:{getUserMedia:()=>++calls===1?new Promise(r=>first=r):Promise.resolve(current)}},configurable:true});globalThis.AudioContext=Context;globalThis.AudioWorkletNode=Worklet;
- try{const input=new DuplexInput();const pending=input.start();input.stop();await input.start();assert.equal(input.running,true);first(old);await pending;assert.equal(old.stopped,true);assert.equal(current.stopped,false);assert.equal(input.running,true);input.stop();assert.equal(current.stopped,true);}
+ Object.defineProperty(globalThis,'navigator',{value:{mediaDevices:{getUserMedia:options=>{requests.push(options);return ++calls===1?new Promise(r=>first=r):Promise.resolve(current);}}},configurable:true});globalThis.AudioContext=Context;globalThis.AudioWorkletNode=Worklet;
+ try{const input=new DuplexInput({deviceId:'selected-microphone'});const pending=input.start();input.stop();await input.start();assert.deepEqual(requests[1].audio.deviceId,{exact:'selected-microphone'});assert.equal(input.running,true);first(old);await pending;assert.equal(old.stopped,true);assert.equal(current.stopped,false);assert.equal(input.running,true);input.stop();assert.equal(current.stopped,true);}
  finally{Object.defineProperty(globalThis,'navigator',{value:saved.navigator,configurable:true});globalThis.AudioContext=saved.AudioContext;globalThis.AudioWorkletNode=saved.AudioWorkletNode;}
+});
+test('a stalled recognition request leaves the queue after its deadline',async()=>{
+ const pendingTimers=new Map();let seq=0,signal;const errors=[];
+ const timers={setTimeout(fn){pendingTimers.set(++seq,fn);return seq;},clearTimeout(id){pendingTimers.delete(id);}};
+ const input=new DuplexInput({fetcher:(_url,options)=>{signal=options.signal;return new Promise(()=>{});},onError:m=>errors.push(m),timers});
+ input.running=true;input.session=1;input.queue=[encodeWav([packet(.1)],24000)];const pending=input.drain(1);
+ [...pendingTimers.values()][0]();await pending;assert.equal(input.working,false);assert.equal(input.running,true);assert.equal(signal.aborted,true);assert.match(errors[0],/時間/);assert.equal(pendingTimers.size,0);input.stop();
+});
+test('stop settles recognition even if the transport ignores its abort signal',async()=>{
+ const input=new DuplexInput({fetcher:()=>new Promise(()=>{})});input.running=true;input.session=1;input.queue=[encodeWav([packet(.1)],24000)];
+ const pending=input.drain(1);input.stop();await pending;assert.equal(input.working,false);assert.equal(input.running,false);assert.equal(input.queue.length,0);
+});
+
+test('a disconnected selected microphone falls back to the default without reviving a stopped session',async()=>{
+ const original=globalThis.navigator;let release,calls=0,fallbacks=0,stopped=false;const requests=[];
+ Object.defineProperty(globalThis,'navigator',{value:{mediaDevices:{getUserMedia:options=>{requests.push(options);if(++calls===1)return Promise.reject(Object.assign(Error('missing'),{name:'OverconstrainedError'}));return new Promise(r=>release=r);}}},configurable:true});
+ try{
+  const input=new DuplexInput({deviceId:'unplugged',onDeviceFallback:()=>fallbacks++});const pending=input.start();await tick();
+  assert.equal(fallbacks,1);assert.deepEqual(requests[0].audio.deviceId,{exact:'unplugged'});assert.equal(requests[1].audio.deviceId,undefined);
+  input.stop();release({getTracks:()=>[{stop(){stopped=true;}}]});await pending;assert.equal(stopped,true);assert.equal(input.running,false);assert.equal(input.deviceId,'');
+ }finally{Object.defineProperty(globalThis,'navigator',{value:original,configurable:true});}
+});
+test('microphone permission denial never retries another device',async()=>{
+ const original=globalThis.navigator;let calls=0;
+ Object.defineProperty(globalThis,'navigator',{value:{mediaDevices:{getUserMedia:async()=>{calls++;throw Object.assign(Error('denied'),{name:'NotAllowedError'});}}},configurable:true});
+ try{const input=new DuplexInput({deviceId:'chosen'});await assert.rejects(input.start(),{name:'NotAllowedError'});assert.equal(calls,1);assert.equal(input.running,false);}
+ finally{Object.defineProperty(globalThis,'navigator',{value:original,configurable:true});}
 });
