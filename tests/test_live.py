@@ -61,6 +61,10 @@ class LiveProxyTests(unittest.TestCase):
             self.assertEqual(sent["session"]["model"], "gpt-live-1")
             self.assertEqual(sent["session"]["audio"]["output"]["voice"], "shida")
             self.assertIs(sent["session"]["store"], False)
+            self.assertEqual(
+                sent["session"]["client"]["data_channel"]["allowed_client_events"],
+                ["session.input_audio.mute", "session.input_audio.unmute", "session.close"],
+            )
             self.assertEqual(sent["session"]["delegation"]["type"], "responses")
             self.assertEqual(sent["session"]["delegation"]["responses"]["tools"], [{"type": "web_search"}])
             self.assertEqual(sent["transport"], {"type": "webrtc", "sdp": OFFER})
