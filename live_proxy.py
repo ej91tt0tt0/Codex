@@ -52,6 +52,16 @@ def create_live_session(sdp: str, voice: str = "marin") -> dict:
         "model": "gpt-live-1",
         "instructions": PROMPT,
         "audio": {"output": {"voice": voice}},
+        "client": {
+            "data_channel": {
+                "allowed_client_events": [
+                    "session.input_audio.mute",
+                    "session.input_audio.unmute",
+                    "session.close",
+                ],
+                "allowed_server_events": "all",
+            },
+        },
         "store": False,
         "delegation": {
             "type": "responses",
