@@ -19,17 +19,23 @@
       <p>相手が話し終わるのを待たずに声をかけられる、低遅延の音声会話を試せます。</p>
       <p class="hint">試験版では通常の会話履歴・記憶・ニュース調査・予定には接続しません。通話内容をASTERのデータベースに保存しませんが、音声はOpenAIへ送信されます。</p>
       <p class="hint">OpenAI APIの従量課金がかかります。開始前にマイクと音量をご確認ください。</p>
+      <p><label for="realtime-mode">会話の調整：</label>
+        <select id="realtime-mode">
+          <option value="natural">自然さ優先（会話の区切りを意味で判断）</option>
+          <option value="speed">速度優先（短い無音で返答）</option>
+        </select></p>
+      <p class="hint">通常は「自然さ優先」がおすすめです。切り替えは通話開始前に行ってください。速度優先では、言いよどみや短い間で話が途切れる場合があります。</p>
       <div class="voice-buttons">
         <button id="realtime-start" type="button">リアルタイム会話を開始</button>
         <button id="realtime-stop" type="button" class="secondary" disabled>通話を終了</button>
       </div>
       <p id="realtime-status" role="status" aria-live="polite">停止中。開始ボタンを押してください。</p>
       <h2>会話の文字表示</h2>
-      <p class="hint">送られた文字起こしと応答が利用できる場合だけ表示します。文字起こしがない場合も音声会話はできます。</p>
+      <p class="hint">音声は文字起こし完了を待たずに直接処理されます。文字表示は補助的なもので、文字起こしがなくても会話できます。</p>
       <div id="realtime-log" role="log" aria-live="polite" aria-label="音声会話の記録"></div>
       <details class="card">
         <summary>接続・応答の診断情報（問題が出たときに開く）</summary>
-        <p class="hint">通信状態と応答処理を時刻付きで表示します。APIキーや通話音声は表示しません。エラーが出た場合は、この表示をコピーして開発者に共有してください。</p>
+        <p class="hint">通信状態と返答開始までの待ち時間を時刻付きで表示します。APIキーや通話音声は表示しません。エラーが出た場合は、この表示をコピーして開発者に共有してください。</p>
         <div id="realtime-diagnostics" role="log" aria-live="off"></div>
       </details>
       <p class="hint">二重再生を防ぐため、通常画面の音声会話を停止してから開始してください。同じブラウザで他のASTERタブを開いている場合もご確認ください。ヘッドセットの利用を推奨します。</p>
