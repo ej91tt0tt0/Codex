@@ -50,7 +50,10 @@ class RealtimeProxyTests(unittest.TestCase):
             self.assertIn(b'"language": "ja"', request.data)
             self.assertIn(b'"noise_reduction"', request.data)
             self.assertIn(b'"interrupt_response": true', request.data)
-            self.assertIn(b'"silence_duration_ms": 650', request.data)
+            self.assertIn(b'"type": "semantic_vad"', request.data)
+            self.assertIn(b'"eagerness": "high"', request.data)
+            self.assertIn("自然な口語".encode("utf-8"), request.data)
+            self.assertIn("句読点".encode("utf-8"), request.data)
 
     def test_unauthorized_uses_safe_message(self):
         error = HTTPError(realtime_proxy.ENDPOINT, 401, "Unauthorized", {}, io.BytesIO(b"secret"))
