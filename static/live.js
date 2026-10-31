@@ -20,6 +20,7 @@
   let ready = false;
   let ending = false;
   let muted = false;
+  let pendingMute = null;
   let releaseLock = null;
   let closeTimer = null;
   let networkTimer = null;
@@ -67,6 +68,7 @@
     ready = false;
     ending = false;
     muted = false;
+    pendingMute = null;
     clearTimeout(closeTimer);
     clearTimeout(networkTimer);
     clearInterval(clockTimer);
@@ -127,6 +129,19 @@
       case 'session.delegation.created':
         label('調べもの・回答の処理中…（音声会話は継続できます）');
         break;
+      case 'session.input_audio.muted':
+      case 'session.input_audio.unmuted': {
+        const next = event.type === 'session.input_audio.muted';
+        if (!pendingMute ||
+            (event.client_event_id && event.client_event_id !== pendingMute.id) ||
+            pendingMute.next !== next) break;
+        muted = next;
+        pendingMute = null;
+        muteButton.disabled = false;
+        muteButton.textContent = muted ? 'マイクのミュート解除' : 'マイクをミュート';
+        label(muted ? 'マイクをミュート中です。' : '会話中。自然に話しかけてください。');
+        break;
+      }
       case 'session.closed':
         if (typeof event.usage?.seconds === 'number')
           usage.textContent = '確定した音声時間：' + event.usage.seconds.toFixed(1) + '秒';
@@ -135,6 +150,13 @@
         break;
       case 'error':
         diagnose('音声APIエラー: ' + (event.error?.code || event.error?.type || 'unknown'));
+        if (pendingMute &&
+            (!event.error?.client_event_id ||
+             event.error.client_event_id === pendingMute.id)) {
+          pendingMute = null;
+          muteButton.disabled = !ready || ending;
+          diagnose('ミュート変更は受け付けられませんでした。');
+        }
         label('音声APIでエラーが発生しました。診断情報を確認してください。');
         break;
     }
@@ -283,22 +305,33 @@
     }
   }
   function toggleMute() {
-    if (!ready || !channel || channel.readyState !== 'open') return;
+    if (!ready || ending || pendingMute || !channel || channel.readyState !== 'open') return;
     const next = !muted;
+    const id = 'mic_' + Date.now();
     try {
+      pendingMute = { id, next };
+      muteButton.disabled = true;
       channel.send(JSON.stringify({
         type: next ? 'session.input_audio.mute' : 'session.input_audio.unmute',
-        event_id: 'mic_' + Date.now(),
+        event_id: id,
       }));
-      muted = next;
-      muteButton.textContent = next ? 'マイクのミュート解除' : 'マイクをミュート';
-      label(next ? 'マイクをミュート中です。' : '会話中。自然に話しかけてください。');
+      label('マイク設定の反映を確認しています…');
     } catch {
+      pendingMute = null;
+      muteButton.disabled = false;
       diagnose('ミュートの変更に失敗しました。');
     }
   }
   startButton.addEventListener('click', start);
   stopButton.addEventListener('click', stop);
   muteButton.addEventListener('click', toggleMute);
-  window.addEventListener('pagehide', () => cleanup('画面が閉じられました。'));
+  window.addEventListener('pagehide', () => {
+    // Best effort: tell Live to close before the browser tears down WebRTC.
+    if (ready && channel?.readyState === 'open' && !ending) {
+      try {
+        channel.send(JSON.stringify({ type: 'session.close', event_id: 'pagehide_' + Date.now() }));
+      } catch {}
+    }
+    cleanup('画面が閉じられました。');
+  });
 })();
