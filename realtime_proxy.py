@@ -32,18 +32,28 @@ def create_realtime_call(offer: bytes) -> bytes:
         "type": "realtime",
         "model": os.environ.get("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1-mini"),
         "instructions": (
-            "あなたはASTER（アスター）。日本語で自然に、簡潔で親しみやすく話します。"
-            "会話の前後関係を大切にし、分からないことは正直に伝えてください。"
+            "あなたはASTER（アスター）。日本語で自然に、簡潔かつ親しみやすく話します。"
+            "発話が終わってから応答し、利用者が話し始めたら速やかに譲ってください。"
+            "直近の質問に集中し、同じ説明や挨拶を繰り返さず、"
+            "言い間違いや聞き取れない部分は短く確認してください。"
+            "今の通話内の文脈を踏まえますが、再接続で文脈が失われる場合があります。"
             "この通話では外部検索、予定操作、永続記憶へのアクセスはできません。"
             "それらを実行したと装わず、必要なら通常画面を案内してください。"
         ),
         "audio": {
             "output": {"voice": "marin"},
-            "input": {"turn_detection": {
-                "type": "server_vad",
-                "create_response": True,
-                "interrupt_response": True,
-            }},
+            "input": {
+                "noise_reduction": {"type": "near_field"},
+                "transcription": {"model": "gpt-transcribe", "language": "ja"},
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": 0.45,
+                    "prefix_padding_ms": 500,
+                    "silence_duration_ms": 650,
+                    "create_response": True,
+                    "interrupt_response": True,
+                },
+            },
         },
     }
     boundary = "aster-realtime-" + uuid.uuid4().hex
