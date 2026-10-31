@@ -15,6 +15,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import companion
 import autonomy
+import realtime_proxy
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -624,7 +625,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.close_connection=True
                     return
                 return self.reply({'error':'バックアップを作れなかったよ。保存先やアプリの状態を確認してね。'},502)
-        names = {'/icon.svg': ('icon.svg','image/svg+xml'), '/favicon.ico': ('icon.svg','image/svg+xml'), '/': ('index.html', 'text/html'), '/app.js': ('app.js', 'text/javascript'), '/voice.js': ('voice.js', 'text/javascript'), '/audio.js': ('audio.js', 'text/javascript'), '/input.js': ('input.js', 'text/javascript'), '/scope.js': ('scope.js', 'text/javascript'), '/handsfree.js': ('handsfree.js', 'text/javascript'), '/companion.js': ('companion.js', 'text/javascript'), '/mic-worklet.js': ('mic-worklet.js', 'text/javascript'), '/style.css': ('style.css', 'text/css')}
+        names = {'/icon.svg': ('icon.svg','image/svg+xml'), '/favicon.ico': ('icon.svg','image/svg+xml'), '/': ('index.html', 'text/html'), '/app.js': ('app.js', 'text/javascript'), '/voice.js': ('voice.js', 'text/javascript'), '/audio.js': ('audio.js', 'text/javascript'), '/input.js': ('input.js', 'text/javascript'), '/scope.js': ('scope.js', 'text/javascript'), '/handsfree.js': ('handsfree.js', 'text/javascript'), '/companion.js': ('companion.js', 'text/javascript'), '/mic-worklet.js': ('mic-worklet.js', 'text/javascript'),, '/realtime': ('realtime.html', 'text/html'), '/realtime.js': ('realtime.js', 'text/javascript') '/style.css': ('style.css', 'text/css')}
         if self.path not in names:
             return self.reply({'error': 'Not found'}, 404)
         name, mime = names[self.path]
@@ -656,6 +657,28 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply({'error': '録音データを確認してください。'}, 400)
             except Exception:
                 return self.reply({'error': '音声認識に接続できませんでした。API設定・接続・利用枠を確認してください。'}, 502)
+        if self.path == '/api/realtime/session':
+            if self.headers.get('Content-Type', '').split(';')[0] != 'application/sdp':
+                return self.reply({'error': 'SDP形式が必要です。'}, 415)
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 50 <= size <= realtime_proxy.MAX_OFFER_BYTES:
+                    raise ValueError('SDPの長さが不正です。')
+                answer = realtime_proxy.create_realtime_call(self.rfile.read(size))
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/sdp; charset=utf-8')
+                self.send_header('Content-Length', str(len(answer)))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.end_headers()
+                self.wfile.write(answer)
+            except (ValueError, TypeError):
+                self.reply({'error': '接続データを確認してください。'}, 400)
+            except realtime_proxy.RealtimeCallError as error:
+                self.reply({'error': str(error)}, 502)
+            except Exception:
+                self.reply({'error': '音声接続を開始できませんでした。ネットワークを確認してください。'}, 502)
+            return
         if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
             return self.reply({'error': 'JSON required'}, 415)
         try:
