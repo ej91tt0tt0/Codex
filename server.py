@@ -625,7 +625,22 @@ class Handler(BaseHTTPRequestHandler):
                     self.close_connection=True
                     return
                 return self.reply({'error':'バックアップを作れなかったよ。保存先やアプリの状態を確認してね。'},502)
-        names = {'/icon.svg': ('icon.svg','image/svg+xml'), '/favicon.ico': ('icon.svg','image/svg+xml'), '/': ('index.html', 'text/html'), '/app.js': ('app.js', 'text/javascript'), '/voice.js': ('voice.js', 'text/javascript'), '/audio.js': ('audio.js', 'text/javascript'), '/input.js': ('input.js', 'text/javascript'), '/scope.js': ('scope.js', 'text/javascript'), '/handsfree.js': ('handsfree.js', 'text/javascript'), '/companion.js': ('companion.js', 'text/javascript'), '/mic-worklet.js': ('mic-worklet.js', 'text/javascript'),, '/realtime': ('realtime.html', 'text/html'), '/realtime.js': ('realtime.js', 'text/javascript') '/style.css': ('style.css', 'text/css')}
+        names = {
+            '/icon.svg': ('icon.svg', 'image/svg+xml'),
+            '/favicon.ico': ('icon.svg', 'image/svg+xml'),
+            '/': ('index.html', 'text/html'),
+            '/app.js': ('app.js', 'text/javascript'),
+            '/voice.js': ('voice.js', 'text/javascript'),
+            '/audio.js': ('audio.js', 'text/javascript'),
+            '/input.js': ('input.js', 'text/javascript'),
+            '/scope.js': ('scope.js', 'text/javascript'),
+            '/handsfree.js': ('handsfree.js', 'text/javascript'),
+            '/companion.js': ('companion.js', 'text/javascript'),
+            '/mic-worklet.js': ('mic-worklet.js', 'text/javascript'),
+            '/style.css': ('style.css', 'text/css'),
+            '/realtime': ('realtime.html', 'text/html'),
+            '/realtime.js': ('realtime.js', 'text/javascript'),
+        }
         if self.path not in names:
             return self.reply({'error': 'Not found'}, 404)
         name, mime = names[self.path]
