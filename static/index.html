@@ -120,10 +120,15 @@
             <div id="latest-sources"></div>
           </details>
 
-          <p class="hint"><strong>新しい声を試す：</strong><a href="/live">GPT-Live 音声会話（新しい試験版） ↗</a>。自然な日本語の会話・割り込みに対応した独立した音声画面です。</p>
-          <p class="hint">比較用：<a href="/realtime">従来のリアルタイム音声会話 ↗</a>。通常の会話・記憶機能はそのまま使えます。</p>
+          <p class="hint"><strong>音声会話はLive方式が標準です。</strong> 自然な発話・割り込みに対応しています。通話は別画面で開始し、API利用料が発生します。</p>
+          <p class="hint">Live方式からは、この画面の保存済み記憶・予定の操作はまだできません。従来の会話方式は引き続き使えます。</p>
+          <details class="source-details">
+            <summary>その他の音声方式</summary>
+            <p class="hint"><a href="/realtime">従来のリアルタイム音声会話</a>（比較用）</p>
+          </details>
           <div class="voice-buttons">
-            <button id="voice-start" type="button">音声会話を開始</button
+            <a id="live-primary-action" class="button-link" href="/live" aria-label="ASTERの標準Live音声会話画面を開く">Live音声会話を開始 ↗</a>
+            <button id="voice-start" type="button" class="secondary">従来方式で開始</button
             ><button
               id="voice-interrupt"
               type="button"
