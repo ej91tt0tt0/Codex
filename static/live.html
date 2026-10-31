@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ASTER | Live 音声会話</title>
+  <title>ASTER | 標準Live音声会話</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/live.css">
   <script src="/live.js" defer></script>
@@ -15,9 +15,9 @@
       <nav><a href="/">通常のASTERへ</a> · <a href="/realtime">従来の試験版へ</a></nav>
     </header>
     <section class="panel live-panel" aria-labelledby="live-title">
-      <p class="eyebrow">VOICE / LIVE CONVERSATION</p>
+      <p class="eyebrow">VOICE / STANDARD LIVE CONVERSATION</p>
       <h1 id="live-title">ASTERと、自然に話す。</h1>
-      <p class="live-lead">GPT-Live 1による、聞き取りと発話が同時に進む新しい音声モードです。返答中に話しかけてもかまいません。</p>
+      <p class="live-lead">ASTERの標準音声会話です。GPT-Live 1で聞き取りと発話を同時に行い、返答中でも話しかけられます。ChatGPT Voiceと同じアプリの内部機能ではなく、公開APIによる独立実装です。</p>
       <div class="live-controls">
         <label for="live-voice">話し声</label>
         <select id="live-voice">
@@ -47,7 +47,7 @@
         <div id="live-diagnostics" role="log" aria-live="off"></div>
       </details>
       <div class="live-disclaimer">
-        <p><strong>試験版について：</strong>現在のASTERの長期記憶・予定管理・ローカル保存済み会話には接続しません。調査・相談は別の回答モデルが処理できますが、ASTERの記憶を読み書きしたと装うことはありません。</p>
+        <p><strong>連携範囲：</strong>標準の音声画面として利用できますが、現在のASTERの長期記憶・予定管理・ローカル保存済み会話とはまだ連携していません。調査・相談は別の回答モデルを利用できます。実際の音声品質は利用環境で確認してください。</p>
         <p>会話音声はOpenAIへ送信されます。ASTER側の会話履歴には保存しません。GPT-Liveは<strong>1分あたり0.05米ドル</strong>、調査や回答モデルの利用は別途従量課金です。通話が終わったら「通話を終了」を押してください。</p>
         <p>別のASTER画面のマイクを使っている場合は、そちらの音声会話を停止してください。</p>
       </div>
