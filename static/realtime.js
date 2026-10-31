@@ -82,7 +82,7 @@
       microphone = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      if (token !== generation) return;
+      if (token !== generation) { microphone.getTracks().forEach(track => track.stop()); microphone = null; return; }
       peer = new RTCPeerConnection();
       peer.ontrack = (event) => {
         audio.srcObject = event.streams[0];
@@ -134,36 +134,12 @@
     closing = true;
     stopButton.disabled = true;
     setStatus('通話を終了しています…');
-    const current = channel;
-    if (current?.readyState === 'open') {
-      // End gracefully to let the service finalize usage; never wait indefinitely.
-      await new Promise((resolve) => {
-        let timer;
-        const onMessage = (event) => {
-          try {
-            if (JSON.parse(event.data).type === 'session.closed') finish();
-          } catch {}
-        };
-        const finish = () => {
-          clearTimeout(timer);
-          current.removeEventListener('message', onMessage);
-          resolve();
-        };
-        current.addEventListener('message', onMessage);
-        timer = setTimeout(finish, 1500);
-        try { current.send(JSON.stringify({ type: 'session.close' })); }
-        catch { finish(); }
-      });
-    }
     cleanUp();
     setStatus('通話を終了しました。');
   }
   startButton.addEventListener('click', start);
   stopButton.addEventListener('click', stop);
   window.addEventListener('pagehide', () => {
-    if (channel?.readyState === 'open') {
-      try { channel.send(JSON.stringify({ type: 'session.close' })); } catch {}
-    }
     cleanUp();
   });
 })();
