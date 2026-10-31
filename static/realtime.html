@@ -21,10 +21,10 @@
       <p class="hint">OpenAI APIの従量課金がかかります。開始前にマイクと音量をご確認ください。</p>
       <p><label for="realtime-mode">会話の調整：</label>
         <select id="realtime-mode">
+          <option value="speed" selected>速度優先（短い無音で返答・初期設定）</option>
           <option value="natural">自然さ優先（会話の区切りを意味で判断）</option>
-          <option value="speed">速度優先（短い無音で返答）</option>
         </select></p>
-      <p class="hint">通常は「自然さ優先」がおすすめです。切り替えは通話開始前に行ってください。速度優先では、言いよどみや短い間で話が途切れる場合があります。</p>
+      <p class="hint">まずは「速度優先」で反応を試してください。会話が途中で区切られる場合は「自然さ優先」に戻せます。切り替えは通話開始前に行ってください。</p>
       <div class="voice-buttons">
         <button id="realtime-start" type="button">リアルタイム会話を開始</button>
         <button id="realtime-stop" type="button" class="secondary" disabled>通話を終了</button>
