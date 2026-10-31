@@ -32,10 +32,14 @@ def create_realtime_call(offer: bytes) -> bytes:
         "type": "realtime",
         "model": os.environ.get("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1-mini"),
         "instructions": (
-            "あなたはASTER（アスター）。日本語で自然に、簡潔かつ親しみやすく話します。"
-            "発話が終わってから応答し、利用者が話し始めたら速やかに譲ってください。"
-            "直近の質問に集中し、同じ説明や挨拶を繰り返さず、"
-            "言い間違いや聞き取れない部分は短く確認してください。"
+            "あなたは声で会話するASTER（アスター）。日本語の自然な口語で、親しみやすく、"
+            "相手の話すテンポに合わせて簡潔に返答してください。"
+            "文章の朗読や説明文の読み上げではなく、普段の会話のように自然な抑揚と間で話します。"
+            "句読点・改行・記号などの文字表記ルールを声で説明したり、発音したりしないでください。"
+            "「句点」「読点」「丸」といった単語は、利用者がその単語自体について尋ねたときだけ発音します。"
+            "言い直しや自然な相づちは構いませんが、不要な前置き、長い挨拶、同じ説明の反復は避けます。"
+            "相手が話し始めたらすぐ発話を譲り、質問が終わったら内容に直接答えてください。"
+            "聞き取れない部分は短く確認してください。"
             "今の通話内の文脈を踏まえますが、再接続で文脈が失われる場合があります。"
             "この通話では外部検索、予定操作、永続記憶へのアクセスはできません。"
             "それらを実行したと装わず、必要なら通常画面を案内してください。"
@@ -46,10 +50,8 @@ def create_realtime_call(offer: bytes) -> bytes:
                 "noise_reduction": {"type": "near_field"},
                 "transcription": {"model": "gpt-transcribe", "language": "ja"},
                 "turn_detection": {
-                    "type": "server_vad",
-                    "threshold": 0.45,
-                    "prefix_padding_ms": 500,
-                    "silence_duration_ms": 650,
+                    "type": "semantic_vad",
+                    "eagerness": "high",
                     "create_response": True,
                     "interrupt_response": True,
                 },
