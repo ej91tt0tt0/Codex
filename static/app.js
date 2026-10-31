@@ -598,7 +598,7 @@ const voice = new AsterVoice.VoiceController({
       'aria-label',
       voice.replaying ? '再読み上げを停止' : 'ASTERの直前の返答をもう一度聞く',
     );
-    $('voice-start').textContent = s.active ? '● 音声会話中' : '音声会話を開始';
+    $('voice-start').textContent = s.active ? '● 従来方式で会話中' : '従来方式で開始';
     const live =
       s.listening &&
       (!voice.usingDuplex ||

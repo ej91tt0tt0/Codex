@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASTER | 標準Live音声会話</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/live.css">
+  <script src="/live.js" defer></script>
+</head>
+<body>
+  <main class="live-main">
+    <header class="live-header">
+      <a class="brand" href="/">ASTER <span class="brand-caption">PERSONAL AI</span></a>
+      <nav><a href="/">通常のASTERへ</a> · <a href="/realtime">従来の試験版へ</a></nav>
+    </header>
+    <section class="panel live-panel" aria-labelledby="live-title">
+      <p class="eyebrow">VOICE / STANDARD LIVE CONVERSATION</p>
+      <h1 id="live-title">ASTERと、自然に話す。</h1>
+      <p class="live-lead">ASTERの標準音声会話です。GPT-Live 1で聞き取りと発話を同時に行い、返答中でも話しかけられます。ChatGPT Voiceと同じアプリの内部機能ではなく、公開APIによる独立実装です。</p>
+      <div class="live-controls">
+        <label for="live-voice">話し声</label>
+        <select id="live-voice">
+          <option value="shida" selected>Shida｜日本語・男性の声</option>
+          <option value="harema">Harema｜日本語・女性の声</option>
+          <option value="marin">Marin｜標準の声</option>
+        </select>
+        <p class="hint">声の変更は通話を終了してから行えます。</p>
+        <div class="voice-buttons">
+          <button id="live-start" type="button">音声会話を開始</button>
+          <button id="live-mute" type="button" class="secondary" disabled>マイクをミュート</button>
+          <button id="live-stop" type="button" class="secondary" disabled>通話を終了</button>
+        </div>
+      </div>
+      <p id="live-status" class="live-status" role="status" aria-live="polite">停止中です。「音声会話を開始」を押してください。</p>
+      <div class="live-stats">
+        <span>経過：<strong id="live-elapsed">0秒</strong></span>
+        <span id="live-usage">音声API利用時間：未計測</span>
+      </div>
+      <audio id="live-audio" autoplay controls aria-label="ASTERの音声出力"></audio>
+      <h2>会話の字幕</h2>
+      <p class="hint">字幕は補助表示です。音声はテキスト化の完了を待たず、音声のまま会話します。字幕の区切りは実際の発話と異なる場合があります。</p>
+      <div id="live-captions" class="live-captions" role="log" aria-live="off" aria-label="音声会話の字幕"></div>
+      <details class="card">
+        <summary>接続の診断情報</summary>
+        <p class="hint">問題が起きた場合はここに表示される通信状態を共有してください。APIキーや会話音声は表示しません。</p>
+        <div id="live-diagnostics" role="log" aria-live="off"></div>
+      </details>
+      <div class="live-disclaimer">
+        <p><strong>連携範囲：</strong>標準の音声画面として利用できますが、現在のASTERの長期記憶・予定管理・ローカル保存済み会話とはまだ連携していません。調査・相談は別の回答モデルを利用できます。実際の音声品質は利用環境で確認してください。</p>
+        <p>会話音声はOpenAIへ送信されます。ASTER側の会話履歴には保存しません。GPT-Liveは<strong>1分あたり0.05米ドル</strong>、調査や回答モデルの利用は別途従量課金です。通話が終わったら「通話を終了」を押してください。</p>
+        <p>別のASTER画面のマイクを使っている場合は、そちらの音声会話を停止してください。</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
