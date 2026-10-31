@@ -1,0 +1,29 @@
+name: ASTER Live preview checks
+
+on:
+  push:
+    branches:
+      - feature/realtime-voice
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  live-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile Python integration
+        run: python -m py_compile live_proxy.py server.py
+      - name: Test GPT-Live proxy
+        run: python -m unittest discover -s tests -p 'test_live.py' -v
+      - name: Test Realtime regression
+        run: python -m unittest discover -s tests -p 'test_realtime.py' -v
+      - name: Check browser JavaScript syntax
+        run: node --check static/live.js
