@@ -47,6 +47,10 @@ class RealtimeProxyTests(unittest.TestCase):
             self.assertIn(b"gpt-realtime-2.1-mini", request.data)
             self.assertNotIn(b"sk-unit-test", request.data)
             self.assertNotIn(b"memory", request.data.lower())
+            self.assertIn(b'"language": "ja"', request.data)
+            self.assertIn(b'"noise_reduction"', request.data)
+            self.assertIn(b'"interrupt_response": true', request.data)
+            self.assertIn(b'"silence_duration_ms": 650', request.data)
 
     def test_unauthorized_uses_safe_message(self):
         error = HTTPError(realtime_proxy.ENDPOINT, 401, "Unauthorized", {}, io.BytesIO(b"secret"))
