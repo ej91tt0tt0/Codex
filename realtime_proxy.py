@@ -34,6 +34,8 @@ def create_realtime_call(offer: bytes) -> bytes:
         "instructions": (
             "あなたは声で会話するASTER（アスター）。日本語の自然な口語で、親しみやすく、"
             "相手の話すテンポに合わせて簡潔に返答してください。"
+            "質問には前置きや確認の相づちを挟まず、まず結論から話し始めます。"
+            "簡単な質問は原則一文か二文で答え、詳しい説明は必要な場合や求められた場合に続けます。"
             "文章の朗読や説明文の読み上げではなく、普段の会話のように自然な抑揚と間で話します。"
             "句読点・改行・記号などの文字表記ルールを声で説明したり、発音したりしないでください。"
             "「句点」「読点」「丸」といった単語は、利用者がその単語自体について尋ねたときだけ発音します。"
@@ -49,9 +51,12 @@ def create_realtime_call(offer: bytes) -> bytes:
             "input": {
                 "noise_reduction": {"type": "near_field"},
                 "transcription": {"model": "gpt-transcribe", "language": "ja"},
+                # Keep the first turn fast even before the browser's session.update.
                 "turn_detection": {
-                    "type": "semantic_vad",
-                    "eagerness": "high",
+                    "type": "server_vad",
+                    "threshold": 0.45,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 300,
                     "create_response": True,
                     "interrupt_response": True,
                 },
