@@ -197,11 +197,11 @@
       events.onopen = () => {
         if (token !== generation) return;
         // Apply the selected profile before the first user utterance.
-        // Natural mode is also the server default if this update is delayed.
+        // Speed mode is also the server default if this update is delayed.
         const quick = modeSelect?.value === 'speed';
         const detection = quick
           ? { type: 'server_vad', threshold: 0.45, prefix_padding_ms: 300,
-              silence_duration_ms: 450, create_response: true, interrupt_response: true }
+              silence_duration_ms: 300, create_response: true, interrupt_response: true }
           : { type: 'semantic_vad', eagerness: 'high',
               create_response: true, interrupt_response: true };
         try {
