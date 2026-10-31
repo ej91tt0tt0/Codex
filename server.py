@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 import companion
 import autonomy
 import realtime_proxy
+import live_proxy
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -640,6 +641,9 @@ class Handler(BaseHTTPRequestHandler):
             '/style.css': ('style.css', 'text/css'),
             '/realtime': ('realtime.html', 'text/html'),
             '/realtime.js': ('realtime.js', 'text/javascript'),
+            '/live': ('live.html', 'text/html'),
+            '/live.js': ('live.js', 'text/javascript'),
+            '/live.css': ('live.css', 'text/css'),
         }
         if self.path not in names:
             return self.reply({'error': 'Not found'}, 404)
@@ -672,6 +676,26 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply({'error': '録音データを確認してください。'}, 400)
             except Exception:
                 return self.reply({'error': '音声認識に接続できませんでした。API設定・接続・利用枠を確認してください。'}, 502)
+        if self.path == '/api/live/session':
+            if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
+                return self.reply({'error': 'JSON形式が必要です。'}, 415)
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= live_proxy.MAX_OFFER_BYTES + 1024:
+                    raise ValueError('入力サイズが不正です。')
+                request = json.loads(self.rfile.read(size))
+                if not isinstance(request, dict):
+                    raise ValueError('JSON形式が不正です。')
+                session = live_proxy.create_live_session(
+                    request.get('sdp'), request.get('voice', 'marin')
+                )
+                return self.reply(session, 201)
+            except (ValueError, TypeError, UnicodeError):
+                return self.reply({'error': '接続データまたは音声設定を確認してください。'}, 400)
+            except live_proxy.LiveCallError as error:
+                return self.reply({'error': str(error)}, 502)
+            except Exception:
+                return self.reply({'error': '音声接続を開始できませんでした。ネットワークを確認してください。'}, 502)
         if self.path == '/api/realtime/session':
             if self.headers.get('Content-Type', '').split(';')[0] != 'application/sdp':
                 return self.reply({'error': 'SDP形式が必要です。'}, 415)
