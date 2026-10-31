@@ -33,7 +33,7 @@ CONVERSATION_LOCK = threading.RLock()
 STATE_SNAPSHOT_LOCK = threading.Lock()
 RESEARCH_LOCK = threading.Lock()
 API_STATUS = {}
-APP_VERSION = '1.1.0'
+APP_VERSION = '1.2.0'
 WEATHER_URL = 'https://www.jma.go.jp/bosai/forecast/data/forecast/230000.json'
 REGIONAL_TOPICS = '碧南市 天気,名鉄三河線 運行,知多半島道路 交通,知多高速道路 交通,国道23号 愛知 渋滞,愛知県 交通情報'
 
@@ -681,7 +681,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply({'error': 'JSON形式が必要です。'}, 415)
             try:
                 size = int(self.headers.get('Content-Length', '0'))
-                if not 0 < size <= live_proxy.MAX_OFFER_BYTES + 1024:
+                if not 0 < size <= live_proxy.MAX_OFFER_BYTES * 2 + 2048:
                     raise ValueError('入力サイズが不正です。')
                 request = json.loads(self.rfile.read(size))
                 if not isinstance(request, dict):
