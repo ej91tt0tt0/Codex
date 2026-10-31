@@ -27,6 +27,12 @@
       <h2>会話の文字表示</h2>
       <p class="hint">送られた文字起こしと応答が利用できる場合だけ表示します。文字起こしがない場合も音声会話はできます。</p>
       <div id="realtime-log" role="log" aria-live="polite" aria-label="音声会話の記録"></div>
+      <details class="card">
+        <summary>接続・応答の診断情報（問題が出たときに開く）</summary>
+        <p class="hint">通信状態と応答処理を時刻付きで表示します。APIキーや通話音声は表示しません。エラーが出た場合は、この表示をコピーして開発者に共有してください。</p>
+        <div id="realtime-diagnostics" role="log" aria-live="off"></div>
+      </details>
+      <p class="hint">二重再生を防ぐため、通常画面の音声会話を停止してから開始してください。同じブラウザで他のASTERタブを開いている場合もご確認ください。ヘッドセットの利用を推奨します。</p>
       <audio id="realtime-audio" autoplay></audio>
     </section>
   </main>
