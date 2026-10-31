@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 import realtime_proxy
 
 
-OFFER = b"v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n"
+OFFER = b"v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\n"
 ANSWER = b"v=0\r\no=- 9 8 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n"
 
 
