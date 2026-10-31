@@ -1,4 +1,4 @@
-/* Isolated WebRTC preview. Does not share ASTER's classic microphone, history or storage. */
+/* ASTER Realtime voice preview: isolated from the classic voice and history. */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -7,139 +7,229 @@
   const status = $('realtime-status');
   const log = $('realtime-log');
   const audio = $('realtime-audio');
-  let peer = null;
-  let microphone = null;
-  let channel = null;
-  let starting = false;
-  let closing = false;
+  const diagnostics = $('realtime-diagnostics');
+  let pc = null;
+  let mic = null;
+  let events = null;
   let generation = 0;
-  let replyLine = null;
+  let starting = false;
+  let stopping = false;
+  let transcriptLine = null;
+  let activeResponse = false;
+  let releaseMicLock = null;
+  let disconnectTimer = null;
+  let firstReplyAt = 0;
 
-  function setStatus(message) { status.textContent = message; }
-  function addLine(label, content) {
+  const mark = (message) => { status.textContent = message; };
+  const debug = (message) => {
+    if (!diagnostics) return;
+    const entry = document.createElement('p');
+    entry.textContent = new Date().toLocaleTimeString('ja-JP') + ' ' + message;
+    diagnostics.prepend(entry);
+    while (diagnostics.childElementCount > 20) diagnostics.lastElementChild.remove();
+  };
+  const append = (who, content = '') => {
     const line = document.createElement('p');
-    const strong = document.createElement('strong');
-    strong.textContent = label + ': ';
-    line.append(strong, document.createTextNode(content));
+    const name = document.createElement('strong');
+    name.textContent = who + '：';
+    line.append(name, document.createTextNode(content));
     log.append(line);
-    if (log.children.length > 80) log.firstElementChild.remove();
+    while (log.childElementCount > 80) log.firstElementChild.remove();
     return line;
-  }
-  function cleanUp() {
-    generation += 1;
+  };
+  function shutdown(message = '通話を終了しました。') {
+    generation++;
     starting = false;
-    closing = false;
-    if (channel) {
-      channel.onmessage = channel.onclose = channel.onopen = null;
-      try { channel.close(); } catch {}
-      channel = null;
+    stopping = false;
+    clearTimeout(disconnectTimer);
+    disconnectTimer = null;
+    if (events) {
+      events.onmessage = events.onopen = events.onclose = null;
+      try { events.close(); } catch {}
+      events = null;
     }
-    if (microphone) {
-      microphone.getTracks().forEach((track) => track.stop());
-      microphone = null;
+    if (mic) {
+      mic.getTracks().forEach(track => track.stop());
+      mic = null;
     }
-    if (peer) {
-      peer.ontrack = peer.onconnectionstatechange = null;
-      peer.close();
-      peer = null;
+    if (pc) {
+      pc.ontrack = pc.onconnectionstatechange = null;
+      pc.close();
+      pc = null;
     }
     audio.pause();
     audio.srcObject = null;
-    replyLine = null;
+    transcriptLine = null;
+    activeResponse = false;
+    const release = releaseMicLock;
+    releaseMicLock = null;
+    release?.();
     startButton.disabled = false;
     stopButton.disabled = true;
+    mark(message);
   }
-  function handleEvent(event) {
-    if (event.type === 'response.output_audio_transcript.delta') {
-      if (!replyLine) replyLine = addLine('ASTER', '');
-      replyLine.append(document.createTextNode(event.delta || ''));
-    } else if (event.type === 'response.output_audio_transcript.done') {
-      if (event.transcript && !replyLine) addLine('ASTER', event.transcript);
-      replyLine = null;
-    } else if (event.type === 'conversation.item.input_audio_transcription.completed') {
-      if (event.transcript) addLine('あなた', event.transcript);
-    } else if (event.type === 'input_audio_buffer.speech_started') {
-      setStatus('聞き取り中…');
-    } else if (event.type === 'response.created') {
-      setStatus('ASTERが考えています…');
-    } else if (event.type === 'response.done') {
-      replyLine = null;
-      setStatus('接続中。話しかけてください。');
-    } else if (event.type === 'error') {
-      setStatus('音声APIのエラーです。必要に応じて通話を終了し、再接続してください。');
+  async function acquireMicLock(token) {
+    if (!navigator.locks?.request) {
+      debug('タブ間マイク排他機能が使用できません。他のASTER画面の音声を停止してください。');
+      return true;
+    }
+    return new Promise(resolve => {
+      navigator.locks.request('yorisoi-microphone', { ifAvailable: true }, async lock => {
+        if (!lock) {
+          resolve(false);
+          return;
+        }
+        if (token !== generation) {
+          resolve(false);
+          return;
+        }
+        await new Promise(release => {
+          releaseMicLock = release;
+          resolve(true);
+        });
+      }).catch(() => resolve(false));
+    });
+  }
+  function handleEvent(e) {
+    switch (e.type) {
+      case 'input_audio_buffer.speech_started':
+        mark('聞き取り中…');
+        break;
+      case 'input_audio_buffer.speech_stopped':
+        firstReplyAt = performance.now();
+        mark('返答を準備中…');
+        break;
+      case 'conversation.item.input_audio_transcription.completed':
+        if (e.transcript) append('あなた', e.transcript);
+        break;
+      case 'conversation.item.input_audio_transcription.failed':
+        debug('文字起こしに失敗。音声会話は続けられます。');
+        break;
+      case 'response.created':
+        activeResponse = true;
+        mark('ASTERが返答中…');
+        break;
+      case 'response.output_audio_transcript.delta':
+        if (!transcriptLine) transcriptLine = append('ASTER');
+        transcriptLine.append(document.createTextNode(e.delta || ''));
+        break;
+      case 'response.output_audio_transcript.done':
+        if (!transcriptLine && e.transcript) append('ASTER', e.transcript);
+        transcriptLine = null;
+        break;
+      case 'response.done':
+        if (firstReplyAt) {
+          debug('発話終了から応答完了まで約' + ((performance.now() - firstReplyAt) / 1000).toFixed(1) + '秒');
+          firstReplyAt = 0;
+        }
+        activeResponse = false;
+        transcriptLine = null;
+        if (e.response?.status === 'failed') {
+          const code = e.response.status_details?.error?.code || 'unknown';
+          debug('応答エラー: ' + code);
+          mark('応答でエラーが発生しました。診断表示を確認してください。');
+        } else mark('接続中。話しかけてください。');
+        break;
+      case 'error':
+        debug('APIエラー: ' + (e.error?.code || e.error?.type || 'unknown'));
+        mark('音声APIのエラーです。診断表示を確認してください。');
+        break;
     }
   }
   async function start() {
-    if (peer || starting) return;
+    if (pc || starting) return;
     starting = true;
     const token = ++generation;
     startButton.disabled = true;
     stopButton.disabled = false;
-    setStatus('マイクを準備しています…');
+    mark('マイクを確認しています…');
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection)
         throw Error('ChromeまたはEdgeでマイクとWebRTCを有効にしてください。');
-      microphone = await navigator.mediaDevices.getUserMedia({
+      if (!(await acquireMicLock(token))) {
+        throw Error('別のASTER画面がマイクを使用中です。そちらの音声会話を停止してください。');
+      }
+      if (token !== generation) return;
+      mic = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      if (token !== generation) { microphone.getTracks().forEach(track => track.stop()); microphone = null; return; }
-      peer = new RTCPeerConnection();
-      peer.ontrack = (event) => {
-        audio.srcObject = event.streams[0];
-        audio.play().catch(() => setStatus('音声を再生できません。ブラウザの音声設定を確認してください。'));
-      };
-      peer.onconnectionstatechange = () => {
+      if (token !== generation) {
+        mic.getTracks().forEach(track => track.stop());
+        return;
+      }
+      pc = new RTCPeerConnection();
+      pc.ontrack = event => {
         if (token !== generation) return;
-        if (['failed', 'disconnected'].includes(peer?.connectionState)) {
-          setStatus('音声接続が切れました。通話を終了してから再接続してください。');
+        audio.srcObject = event.streams[0];
+        audio.play().catch(() => {
+          debug('音声自動再生がブロックされました。');
+          mark('音が聞こえない場合はブラウザの再生許可・出力先を確認してください。');
+        });
+      };
+      pc.onconnectionstatechange = () => {
+        if (token !== generation || !pc) return;
+        debug('接続状態: ' + pc.connectionState);
+        clearTimeout(disconnectTimer);
+        disconnectTimer = null;
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          shutdown('接続が終了しました。開始ボタンから再接続できます。');
+        } else if (pc.connectionState === 'disconnected') {
+          mark('接続が不安定です。再接続を待っています…');
+          disconnectTimer = setTimeout(() => {
+            if (token === generation && pc?.connectionState === 'disconnected')
+              shutdown('接続が途切れました。ネットワークを確認して再接続してください。');
+          }, 6000);
         }
       };
-      microphone.getTracks().forEach((track) => peer.addTrack(track, microphone));
-      channel = peer.createDataChannel('oai-events');
-      channel.onmessage = (message) => {
-        try { handleEvent(JSON.parse(message.data)); } catch {}
+      mic.getTracks().forEach(track => pc.addTrack(track, mic));
+      events = pc.createDataChannel('oai-events');
+      events.onmessage = message => {
+        try { handleEvent(JSON.parse(message.data)); } catch { debug('イベントの解析に失敗'); }
       };
-      channel.onopen = () => { if (token === generation) setStatus('接続中。話しかけてください。'); };
-      channel.onclose = () => { if (token === generation && !closing) setStatus('音声接続が閉じられました。'); };
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
+      events.onopen = () => {
+        if (token === generation) {
+          mark('接続中。話しかけてください。');
+          debug('音声会話の接続が確立しました。');
+        }
+      };
+      events.onclose = () => {
+        if (token === generation && !stopping && pc?.connectionState !== 'closed')
+          debug('イベント通信が閉じられました。');
+      };
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
       if (token !== generation) return;
-      setStatus('OpenAIへ接続しています…');
-      const result = await fetch('/api/realtime/session', {
+      mark('OpenAIへ接続しています…');
+      const res = await fetch('/api/realtime/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/sdp' },
-        body: peer.localDescription.sdp,
+        body: pc.localDescription.sdp,
       });
       if (token !== generation) return;
-      if (!result.ok) {
-        let message = '音声APIへの接続に失敗しました。';
-        try { message = (await result.json()).error || message; } catch {}
-        throw Error(message);
+      if (!res.ok) {
+        let detail = '音声APIへの接続に失敗しました。';
+        try { detail = (await res.json()).error || detail; } catch {}
+        throw Error(detail);
       }
-      const sdp = await result.text();
+      const sdp = await res.text();
       if (token !== generation) return;
-      await peer.setRemoteDescription({ type: 'answer', sdp });
+      await pc.setRemoteDescription({ type: 'answer', sdp });
       starting = false;
     } catch (error) {
       if (token !== generation) return;
-      const message = error.name === 'NotAllowedError'
-        ? 'マイクの許可が必要です。ブラウザの設定を確認してください。'
-        : error.message || '接続に失敗しました。';
-      cleanUp();
-      setStatus(message);
+      const message = error?.name === 'NotAllowedError'
+        ? 'マイクが許可されていません。ブラウザのサイト設定を確認してください。'
+        : String(error?.message || '接続に失敗しました。');
+      debug('開始エラー: ' + (error?.name || 'Error'));
+      shutdown(message);
     }
   }
-  async function stop() {
-    if (closing) return;
-    closing = true;
-    stopButton.disabled = true;
-    setStatus('通話を終了しています…');
-    cleanUp();
-    setStatus('通話を終了しました。');
+  function stop() {
+    if (stopping) return;
+    stopping = true;
+    shutdown();
   }
   startButton.addEventListener('click', start);
   stopButton.addEventListener('click', stop);
-  window.addEventListener('pagehide', () => {
-    cleanUp();
-  });
+  window.addEventListener('pagehide', () => shutdown('通話を終了しました。'));
 })();
