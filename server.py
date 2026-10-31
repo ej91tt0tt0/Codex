@@ -15,6 +15,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import companion
 import autonomy
+import realtime_proxy
+import live_proxy
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -31,7 +33,7 @@ CONVERSATION_LOCK = threading.RLock()
 STATE_SNAPSHOT_LOCK = threading.Lock()
 RESEARCH_LOCK = threading.Lock()
 API_STATUS = {}
-APP_VERSION = '1.1.0'
+APP_VERSION = '1.2.0'
 WEATHER_URL = 'https://www.jma.go.jp/bosai/forecast/data/forecast/230000.json'
 REGIONAL_TOPICS = '碧南市 天気,名鉄三河線 運行,知多半島道路 交通,知多高速道路 交通,国道23号 愛知 渋滞,愛知県 交通情報'
 
@@ -624,7 +626,25 @@ class Handler(BaseHTTPRequestHandler):
                     self.close_connection=True
                     return
                 return self.reply({'error':'バックアップを作れなかったよ。保存先やアプリの状態を確認してね。'},502)
-        names = {'/icon.svg': ('icon.svg','image/svg+xml'), '/favicon.ico': ('icon.svg','image/svg+xml'), '/': ('index.html', 'text/html'), '/app.js': ('app.js', 'text/javascript'), '/voice.js': ('voice.js', 'text/javascript'), '/audio.js': ('audio.js', 'text/javascript'), '/input.js': ('input.js', 'text/javascript'), '/scope.js': ('scope.js', 'text/javascript'), '/handsfree.js': ('handsfree.js', 'text/javascript'), '/companion.js': ('companion.js', 'text/javascript'), '/mic-worklet.js': ('mic-worklet.js', 'text/javascript'), '/style.css': ('style.css', 'text/css')}
+        names = {
+            '/icon.svg': ('icon.svg', 'image/svg+xml'),
+            '/favicon.ico': ('icon.svg', 'image/svg+xml'),
+            '/': ('index.html', 'text/html'),
+            '/app.js': ('app.js', 'text/javascript'),
+            '/voice.js': ('voice.js', 'text/javascript'),
+            '/audio.js': ('audio.js', 'text/javascript'),
+            '/input.js': ('input.js', 'text/javascript'),
+            '/scope.js': ('scope.js', 'text/javascript'),
+            '/handsfree.js': ('handsfree.js', 'text/javascript'),
+            '/companion.js': ('companion.js', 'text/javascript'),
+            '/mic-worklet.js': ('mic-worklet.js', 'text/javascript'),
+            '/style.css': ('style.css', 'text/css'),
+            '/realtime': ('realtime.html', 'text/html'),
+            '/realtime.js': ('realtime.js', 'text/javascript'),
+            '/live': ('live.html', 'text/html'),
+            '/live.js': ('live.js', 'text/javascript'),
+            '/live.css': ('live.css', 'text/css'),
+        }
         if self.path not in names:
             return self.reply({'error': 'Not found'}, 404)
         name, mime = names[self.path]
@@ -656,6 +676,48 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply({'error': '録音データを確認してください。'}, 400)
             except Exception:
                 return self.reply({'error': '音声認識に接続できませんでした。API設定・接続・利用枠を確認してください。'}, 502)
+        if self.path == '/api/live/session':
+            if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
+                return self.reply({'error': 'JSON形式が必要です。'}, 415)
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= live_proxy.MAX_OFFER_BYTES * 2 + 2048:
+                    raise ValueError('入力サイズが不正です。')
+                request = json.loads(self.rfile.read(size))
+                if not isinstance(request, dict):
+                    raise ValueError('JSON形式が不正です。')
+                session = live_proxy.create_live_session(
+                    request.get('sdp'), request.get('voice', 'marin')
+                )
+                return self.reply(session, 201)
+            except (ValueError, TypeError, UnicodeError):
+                return self.reply({'error': '接続データまたは音声設定を確認してください。'}, 400)
+            except live_proxy.LiveCallError as error:
+                return self.reply({'error': str(error)}, 502)
+            except Exception:
+                return self.reply({'error': '音声接続を開始できませんでした。ネットワークを確認してください。'}, 502)
+        if self.path == '/api/realtime/session':
+            if self.headers.get('Content-Type', '').split(';')[0] != 'application/sdp':
+                return self.reply({'error': 'SDP形式が必要です。'}, 415)
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 50 <= size <= realtime_proxy.MAX_OFFER_BYTES:
+                    raise ValueError('SDPの長さが不正です。')
+                answer = realtime_proxy.create_realtime_call(self.rfile.read(size))
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/sdp; charset=utf-8')
+                self.send_header('Content-Length', str(len(answer)))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.end_headers()
+                self.wfile.write(answer)
+            except (ValueError, TypeError):
+                self.reply({'error': '接続データを確認してください。'}, 400)
+            except realtime_proxy.RealtimeCallError as error:
+                self.reply({'error': str(error)}, 502)
+            except Exception:
+                self.reply({'error': '音声接続を開始できませんでした。ネットワークを確認してください。'}, 502)
+            return
         if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
             return self.reply({'error': 'JSON required'}, 415)
         try:
