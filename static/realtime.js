@@ -8,6 +8,7 @@
   const log = $('realtime-log');
   const audio = $('realtime-audio');
   const diagnostics = $('realtime-diagnostics');
+  const modeSelect = $('realtime-mode');
   let pc = null;
   let mic = null;
   let events = null;
@@ -66,6 +67,7 @@
     release?.();
     startButton.disabled = false;
     stopButton.disabled = true;
+    if (modeSelect) modeSelect.disabled = false;
     mark(message);
   }
   async function acquireMicLock(token) {
@@ -93,7 +95,8 @@
   function handleEvent(e) {
     switch (e.type) {
       case 'input_audio_buffer.speech_started':
-        mark('聞き取り中…');
+        transcriptLine = null;
+        mark(activeResponse ? '割り込みを聞き取り中…' : '聞き取り中…');
         break;
       case 'input_audio_buffer.speech_stopped':
         firstReplyAt = performance.now();
@@ -106,8 +109,16 @@
         debug('文字起こしに失敗。音声会話は続けられます。');
         break;
       case 'response.created':
+        if (firstReplyAt) {
+          debug('発話終了から返答開始まで約' + ((performance.now() - firstReplyAt) / 1000).toFixed(2) + '秒');
+          firstReplyAt = 0;
+        }
         activeResponse = true;
         mark('ASTERが返答中…');
+        break;
+      case 'session.updated':
+        debug('会話設定が反映されました: ' +
+          (e.session?.audio?.input?.turn_detection?.type || '確認中'));
         break;
       case 'response.output_audio_transcript.delta':
         if (!transcriptLine) transcriptLine = append('ASTER');
@@ -118,10 +129,6 @@
         transcriptLine = null;
         break;
       case 'response.done':
-        if (firstReplyAt) {
-          debug('発話終了から応答完了まで約' + ((performance.now() - firstReplyAt) / 1000).toFixed(1) + '秒');
-          firstReplyAt = 0;
-        }
         activeResponse = false;
         transcriptLine = null;
         if (e.response?.status === 'failed') {
@@ -142,6 +149,7 @@
     const token = ++generation;
     startButton.disabled = true;
     stopButton.disabled = false;
+    if (modeSelect) modeSelect.disabled = true;
     mark('マイクを確認しています…');
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection)
@@ -187,10 +195,26 @@
         try { handleEvent(JSON.parse(message.data)); } catch { debug('イベントの解析に失敗'); }
       };
       events.onopen = () => {
-        if (token === generation) {
-          mark('接続中。話しかけてください。');
-          debug('音声会話の接続が確立しました。');
+        if (token !== generation) return;
+        // Apply the selected profile before the first user utterance.
+        // Natural mode is also the server default if this update is delayed.
+        const quick = modeSelect?.value === 'speed';
+        const detection = quick
+          ? { type: 'server_vad', threshold: 0.45, prefix_padding_ms: 300,
+              silence_duration_ms: 450, create_response: true, interrupt_response: true }
+          : { type: 'semantic_vad', eagerness: 'high',
+              create_response: true, interrupt_response: true };
+        try {
+          events.send(JSON.stringify({
+            type: 'session.update',
+            session: { type: 'realtime', audio: { input: { turn_detection: detection } } },
+          }));
+          debug('会話モード: ' + (quick ? '速度優先' : '自然さ優先'));
+        } catch {
+          debug('会話モードを変更できませんでした。標準設定で続けます。');
         }
+        mark('接続中。話しかけてください。');
+        debug('音声会話の接続が確立しました。');
       };
       events.onclose = () => {
         if (token === generation && !stopping && pc?.connectionState !== 'closed')
