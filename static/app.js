@@ -436,6 +436,16 @@ for (const b of document.querySelectorAll('[data-tab]'))
     voice.armIdle();
     window.scrollTo(0, 0);
   };
+// The text workspace owns the message form; return to the Live cockpit
+// without losing the user's saved voice/text mode or their draft.
+$('text-workspace-to-voice').onclick = () => {
+  const mode = $('interaction-mode');
+  if (mode.value === 'text') {
+    mode.value = 'voice';
+    mode.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  document.querySelector('header [data-tab=chat]').click();
+};
 $('chat-form').onsubmit = async (e) => {
   e.preventDefault();
   const draft = $('message').value,
