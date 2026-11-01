@@ -97,7 +97,7 @@ class HomeLiveTests(unittest.TestCase):
 
     def test_classic_voice_is_available_as_opt_in_fallback(self):
         self.assertIn('id="voice-start"', self.page)
-        self.assertIn('class="classic-voice-options"', self.page)
+        self.assertIn('class="source-details classic-voice-options"', self.page)
         self.assertIn("if (HOME_LIVE_DEFAULT && window.AsterLiveHome?.isActive?.())", self.app)
 
 
