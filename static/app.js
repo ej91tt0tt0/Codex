@@ -59,6 +59,7 @@ function resetMemorySearch() {
   memorySearchQuery = '';
   memorySearchSequence++;
   $('memory-search').value = '';
+  $('memory-search-category').value = '';
   $('memory-search-status').textContent = '最新100件を表示。古い記憶は検索できます。';
   collectionSignatures.delete('memory-list');
 }
@@ -272,7 +273,9 @@ function render(s) {
       const details = el('div', null, 'memory-item-content');
       const origin = m.source === 'auto-live' ? 'Liveから自動記憶'
         : m.source === 'auto-chat' ? '通常チャットから自動記憶' : '手動記憶';
-      const meta = el('small', origin + (m.updated || m.created ? ' · ' + jstTime(m.updated || m.created) : ''), 'memory-item-origin');
+      const categories = {project:'プロジェクト',preference:'好み',goal:'目標',relationship:'人物・関係',context:'その他'};
+      const meta = el('small', (categories[m.category] || '記憶') + ' · ' + origin +
+        (m.updated || m.created ? ' · ' + jstTime(m.updated || m.created) : ''), 'memory-item-origin');
       details.append(el('span', m.content), meta);
       const controls = el('div', null, 'memory-item-actions');
       const edit = el('button', '編集', 'secondary');
@@ -470,17 +473,19 @@ $('health-form').onsubmit = async (e) => {
 $('memory-search-form').onsubmit = async (e) => {
   e.preventDefault();
   const q = $('memory-search').value.trim().slice(0, 150);
+  const category = $('memory-search-category').value;
   const sequence = ++memorySearchSequence;
   $('memory-search-status').textContent = '記憶を検索しています…';
   try {
     if (companion?.isTemporary) throw Error('一時チャット中は保存済みの記憶を検索できません。');
-    const response = await fetch('/api/memories?q=' + encodeURIComponent(q), { cache: 'no-store' });
+    const response = await fetch('/api/memories?q=' + encodeURIComponent(q) +
+      '&category=' + encodeURIComponent(category), { cache: 'no-store' });
     if (!response.ok) throw Error('記憶を検索できませんでした。');
     const result = await response.json();
     if (sequence !== memorySearchSequence) return;
     memorySearchRows = result.memories;
-    memorySearchQuery = q;
-    $('memory-search-status').textContent = q
+    memorySearchQuery = q + '|' + category;
+    $('memory-search-status').textContent = (q || category)
       ? '検索結果：' + result.memories.length + '件（最大50件）'
       : '最新50件を表示しています。';
     collectionSignatures.delete('memory-list');
