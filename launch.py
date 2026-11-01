@@ -52,7 +52,7 @@ def reuse_running(url, no_browser):
     print('READY ' + url, flush=True)
     print('ASTER is already running. Stop its original terminal before applying updates or changing the API key.', flush=True)
     if not no_browser:
-        webbrowser.open(url)
+        webbrowser.open(url + '/live')
 
 
 def main():
@@ -106,8 +106,8 @@ def main():
     print('READY ' + url, flush=True)
     print('Keep this terminal open. Press Ctrl+C to stop. Data: ' + str(server.DATA), flush=True)
     if not args.no_browser:
-        if not webbrowser.open(url):
-            print('Open the READY address above in your browser.', flush=True)
+        if not webbrowser.open(url + '/live'):
+            print('Open the READY address above with /live at the end in your browser.', flush=True)
     try:
         while worker.is_alive():
             worker.join(timeout=1)

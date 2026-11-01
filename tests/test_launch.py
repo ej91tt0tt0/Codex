@@ -26,6 +26,25 @@ class DesktopOriginTests(unittest.TestCase):
             c.execute('CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT)')
             c.executemany('INSERT INTO settings VALUES (?,?)', [('automatic', 'false'), ('desktop_port', str(port))])
 
+    def test_browser_launch_opens_live_voice_entry(self):
+        """The desktop opens voice first and never implicitly opens classic home."""
+        from unittest import mock
+        import launch
+        with mock.patch('launch.webbrowser.open') as browser:
+            launch.reuse_running('http://127.0.0.1:8000', False)
+        browser.assert_called_once_with('http://127.0.0.1:8000/live')
+
+    def test_listen_first_requires_explicit_opt_in(self):
+        """Default boot must not automatically charge for a voice session."""
+        root = Path(__file__).resolve().parents[1]
+        script = (root / 'static' / 'live.js').read_text(encoding='utf-8')
+        html = (root / 'static' / 'live.html').read_text(encoding='utf-8')
+        prompt = (root / 'live_proxy.py').read_text(encoding='utf-8')
+        self.assertIn("localStorage.getItem(AUTO_START_KEY) === 'true'", script)
+        self.assertIn("if (autoStartEnabled) start();", script)
+        self.assertIn('id="live-auto-start"', html)
+        self.assertIn('音声接続が成立しても', prompt)
+
     def test_desktop_reuses_origin_on_restart(self):
         with tempfile.TemporaryDirectory() as data, socket.socket() as reserve:
             reserve.bind(('127.0.0.1', 0));preferred=reserve.getsockname()[1];reserve.close()

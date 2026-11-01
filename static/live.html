@@ -25,7 +25,9 @@
           <option value="harema">Harema｜日本語・女性の声</option>
           <option value="marin">Marin｜標準の声</option>
         </select>
-        <p class="hint">声の変更は通話を終了してから行えます。</p>
+        <p class="hint">声の変更は通話を終了してから行えます。ASTERは先に挨拶せず、あなたからの声を待ちます。</p>
+        <label class="check" for="live-auto-start"><input id="live-auto-start" type="checkbox"> 次回から起動時にマイク接続して待機する</label>
+        <p class="hint">初回は下の「音声会話を開始」を押してください。チェックを入れた次回から自動接続します。<strong>接続すると無言でもAPI料金が発生</strong>するため、使わないときは必ず通話を終了してください。ブラウザの音声再生制限で操作が必要になる場合があります。</p>
         <div class="voice-buttons">
           <button id="live-start" type="button">音声会話を開始</button>
           <button id="live-mute" type="button" class="secondary" disabled>マイクをミュート</button>
