@@ -639,6 +639,8 @@ class Handler(BaseHTTPRequestHandler):
             '/companion.js': ('companion.js', 'text/javascript'),
             '/mic-worklet.js': ('mic-worklet.js', 'text/javascript'),
             '/style.css': ('style.css', 'text/css'),
+            '/aster-theme.css': ('aster-theme.css', 'text/css'),
+            '/live-theme.css': ('live-theme.css', 'text/css'),
             '/realtime': ('realtime.html', 'text/html'),
             '/realtime.js': ('realtime.js', 'text/javascript'),
             '/live': ('live.html', 'text/html'),
