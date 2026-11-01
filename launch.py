@@ -112,7 +112,7 @@ def main():
                 raise SystemExit('The API key contains whitespace or non-ASCII characters. Please retry.')
             os.environ['ASSISTANT_API_KEY'] = key
     # Local files only. The cloud key and cloud database are never bundled.
-    os.environ['APP_DESKTOP_ACTIONS']='0' if args.no_browser else '1'
+    os.environ['APP_DESKTOP_ACTIONS']='0' if args.no_browser or args.mobile else '1'
     import server
     server.init()
     # Reusing the origin allows Chrome/Edge to retain microphone permission across launches.
