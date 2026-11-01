@@ -239,12 +239,15 @@ class AppTests(unittest.TestCase):
             results=list(executor.map(lambda _:self.post('reminders/due',{}),range(2)))
         self.assertEqual(sum(len(r['deliveries']) for r in results),1)
 
-    def test_preference_learning(self):
-        self.post('settings',{'auto_memory':'true'})
-        with patch.dict(os.environ, {'OPENAI_API_KEY':''}):
-            s=self.post('chat', {'content':'私は静かな場所が好き。'})
-        self.assertEqual(s['memories'][0]['content'], '私は静かな場所が好き')
-        self.post('settings',{'auto_memory':'false'})
+    def test_auto_memory_is_opt_in_and_async_not_a_regex_side_effect(self):
+        # The previous preference regex synchronously saved a string without
+        # verifying who said it. ASTER 1.8 extracts grounded facts in a separate
+        # API worker; without an API key the old shortcut must not auto-save.
+        self.post('settings', {'auto_memory':'true'})
+        with patch.dict(os.environ, {'OPENAI_API_KEY':'', 'ASSISTANT_API_KEY':''}):
+            result=self.post('chat', {'content':'私は静かな場所が好き。'})
+        self.assertEqual(result['memories'],[])
+        self.post('settings', {'auto_memory':'false'})
 
     def test_memory_opt_out(self):
         self.post('settings',{'remember':'false'})
