@@ -100,7 +100,7 @@ def state():
                   for table in ('messages', 'memories', 'health', 'news', 'improvement_requests')}
         result['messages'].reverse()
         result['memory_total'] = c.execute('SELECT COUNT(*) FROM memories').fetchone()[0]
-    result['memory_conflicts'] = long_memory.list_conflicts(connect,limit=20)
+        result['memory_conflicts'] = long_memory.list_conflicts(connect,limit=20)
         result['settings'] = dict(c.execute('SELECT key,value FROM settings').fetchall())
         result['external_actions'] = [dict(row) for row in c.execute('SELECT * FROM external_actions ORDER BY id DESC LIMIT 20')]
         result['research_runs'] = [dict(row) for row in c.execute('SELECT * FROM research_runs ORDER BY id DESC LIMIT 20')]
