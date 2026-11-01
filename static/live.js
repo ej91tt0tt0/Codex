@@ -308,7 +308,7 @@
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection)
         throw new Error('Chrome / Edge とマイクの利用許可が必要です。');
-      if (isHome && window.AsterClassic?.isActive?.()) window.AsterClassic.stop();
+      if (isHome) window.AsterClassic?.stop?.();
       if (!(await micLock(token)))
         throw new Error('他のASTER画面がマイクを使用中です。そちらを停止してください。');
       if (token !== generation) return;
