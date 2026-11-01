@@ -139,8 +139,8 @@ def main():
     if mobile:
         binary, private_url = mobile
         print('MOBILE URL ' + private_url, flush=True)
-        print('別のPowerShellで実行してください: tailscale serve --bg ' + str(http.server_port), flush=True)
-        print('共有を止める場合: tailscale serve --https=443 off', flush=True)
+        print('別のPowerShellで実行してください: & "' + str(binary) + '" serve --bg ' + str(http.server_port), flush=True)
+        print('共有を止める場合: & "' + str(binary) + '" serve --https=443 off', flush=True)
         print('Tailscale Serveのみ使用してください。Funnelで一般公開しないでください。', flush=True)
     print('Keep this terminal open. Press Ctrl+C to stop. Data: ' + str(server.DATA), flush=True)
     if not args.no_browser:
