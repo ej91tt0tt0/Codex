@@ -1,4 +1,4 @@
-"""Regression checks for ASTER 1.8.1 voice-first home and dedicated menu screens."""
+"""Regression checks for ASTER 1.8.2 centred reactor, edge-docked log and dedicated menu screens."""
 import unittest
 from collections import Counter
 from html.parser import HTMLParser
@@ -105,7 +105,7 @@ class CockpitLayoutTests(unittest.TestCase):
         css = (ROOT / 'static' / 'astral.css').read_text(encoding='utf-8')
         for rule in (
             '#chat .home-cockpit',
-            'grid-template-columns: minmax(0, 1fr) minmax(295px, 350px)',
+            'display: flex;',
             '#chat .home-conversation-sidebar',
             'display: flex;',
             'flex-direction: column;',
@@ -113,7 +113,7 @@ class CockpitLayoutTests(unittest.TestCase):
             'max-height: none;',
             'overflow-y: auto;',
             '@media (max-width: 899px)',
-            'grid-template-columns: minmax(0, 1fr)',
+            'flex-direction: column;',
             '@media (max-width: 767px)',
             '#voice-settings',
             '#text-workspace',
@@ -121,6 +121,34 @@ class CockpitLayoutTests(unittest.TestCase):
             with self.subTest(rule=rule):
                 self.assertIn(rule,css)
         self.assertIn('home-live-buttons', (ROOT / 'static' / 'mobile.css').read_text(encoding='utf-8'))
+
+    def test_reactor_centred_log_docked_to_true_viewport_edge(self):
+        css = (ROOT / 'static' / 'astral.css').read_text(encoding='utf-8')
+        desktop = css.split('@media (min-width: 1260px) {',1)[1].split('@media (min-width: 768px)',1)[0]
+        self.assertIn('body.cosmos-page.home-live-mode > main',desktop)
+        self.assertIn('max-width: none;',desktop)
+        self.assertIn('width: 100%;',desktop)
+        self.assertIn('body.cosmos-page.home-live-mode #chat .voice-orb',desktop)
+        self.assertIn('width: clamp(460px, 31vw, 580px)',desktop)
+        self.assertIn('#chat .home-conversation-sidebar',desktop)
+        self.assertIn('position: fixed;',desktop)
+        self.assertIn('right: 0;',desktop)
+        self.assertIn('left: auto;',desktop)
+        self.assertIn('top: 116px;',desktop)
+        self.assertIn('height: auto;',desktop)
+        self.assertIn('z-index: 7;',desktop)
+        self.assertIn('body.cosmos-page.home-live-mode > main > section.panel:not(#chat)',desktop)
+        self.assertIn('max-width: 1160px;',desktop)
+
+    def test_mobile_does_not_pin_log_or_overflow_viewport(self):
+        css = (ROOT / 'static' / 'astral.css').read_text(encoding='utf-8')
+        self.assertIn('@media (max-width: 899px)',css)
+        self.assertIn('height: clamp(315px, 45dvh, 490px);',css)
+        self.assertIn('@media (max-width: 767px) and (min-height: 700px) and (orientation: portrait)',css)
+        self.assertIn('width: clamp(235px, 74vw, 310px);',css)
+        mobile = (ROOT / 'static' / 'mobile.css').read_text(encoding='utf-8')
+        self.assertIn('position: fixed;',mobile)
+        self.assertIn('.home-live-mode .home-live-buttons',mobile)
 
     def test_navigation_and_existing_voice_actions_remain_wired(self):
         app = (ROOT / 'static' / 'app.js').read_text(encoding='utf-8')
@@ -133,8 +161,8 @@ class CockpitLayoutTests(unittest.TestCase):
         self.assertIn('[data-tab="voice-settings"]',live)
         self.assertIn("const captions = $('live-captions')",live)
         self.assertIn("const target = $('archive-save-status')",live)
-        self.assertIn("APP_VERSION = '1.8.1'",(ROOT / 'server.py').read_text(encoding='utf-8'))
-        self.assertIn('ASTER 1.8.1',self.html)
+        self.assertIn("APP_VERSION = '1.8.2'",(ROOT / 'server.py').read_text(encoding='utf-8'))
+        self.assertIn('ASTER 1.8.2',self.html)
 
 
 if __name__ == '__main__':
