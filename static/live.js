@@ -437,6 +437,7 @@
       isActive: () => starting || ready || ending || Boolean(connection),
       toggle: () => (starting || ready || ending || connection) ? stop() : start(),
       stop,
+      refresh: () => updateHomeVisual('READY'),
     };
     homeOrb.addEventListener('click', () => window.AsterLiveHome.toggle());
     $('interaction-mode')?.addEventListener('change', () => {
