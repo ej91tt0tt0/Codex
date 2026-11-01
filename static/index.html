@@ -126,6 +126,11 @@
           </div>
           <p id="live-status" class="home-live-status" role="status" aria-live="polite">TALKを押して、音声会話を開始</p>
           <p class="home-billing-note">LIVE · 接続中はAPI利用料が発生します</p>
+          <div class="voice-buttons home-live-buttons">
+            <button id="live-start" type="button">リアルタイム音声を開始</button>
+            <button id="live-mute" type="button" class="secondary" disabled>マイクをミュート</button>
+            <button id="live-stop" type="button" class="secondary" disabled>通話を終了</button>
+          </div>
           <details id="home-advanced" class="home-advanced">
             <summary>設定・字幕・詳細情報</summary>
             <div class="home-advanced-body">
@@ -180,11 +185,6 @@
             <summary>その他の音声方式</summary>
             <p class="hint"><a href="/realtime">従来のリアルタイム音声会話</a>（比較用）</p>
           </details>
-          <div class="voice-buttons home-live-buttons">
-            <button id="live-start" type="button">リアルタイム音声を開始</button>
-            <button id="live-mute" type="button" class="secondary" disabled>マイクをミュート</button>
-            <button id="live-stop" type="button" class="secondary" disabled>通話を終了</button>
-          </div>
           <details class="source-details classic-voice-options">
             <summary>従来方式の音声会話</summary>
             <p class="hint">保存済み記憶や予定を使う場合はこちら。Live通話を終了してから開始してください。</p>
