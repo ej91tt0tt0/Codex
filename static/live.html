@@ -39,7 +39,8 @@
           <option value="marin">Marin｜標準の声</option>
         </select>
         <p class="hint">声の変更は通話を終了してから行えます。ASTERは先に挨拶せず、あなたからの声を待ちます。</p>
-        <label class="check" for="live-auto-start"><input id="live-auto-start" type="checkbox"> 次回から起動時にマイク接続して待機する</label>
+        <label class="check" for="live-auto-start"><input id="live-auto-start" type="checkbox"> 次回から起動時にマイク接続して待機する
+        <label class="check" for="live-auto-reconnect"><input id="live-auto-reconnect" type="checkbox"> 切断時に最大2回自動で再接続する（追加API料金が発生します）</label></label>
         <p class="hint">初回は下の「音声会話を開始」を押してください。チェックを入れた次回から自動接続します。<strong>接続すると無言でもAPI料金が発生</strong>するため、使わないときは必ず通話を終了してください。ブラウザの音声再生制限で操作が必要になる場合があります。</p>
         <div class="voice-buttons">
           <button id="live-start" type="button">音声会話を開始</button>
@@ -48,6 +49,7 @@
         </div>
       </div>
       <p id="live-status" class="live-status" role="status" aria-live="polite">停止中です。「音声会話を開始」を押してください。</p>
+          <button id="live-reconnect" type="button" class="secondary live-reconnect" hidden>直前の会話を引き継いで再接続</button>
       <div class="live-stats">
         <span>経過：<strong id="live-elapsed">0秒</strong></span>
         <span id="live-usage">音声API利用時間：未計測</span>
