@@ -564,6 +564,33 @@ $('memory-search-reset').onclick = async () => {
   resetMemorySearch();
   render(await api('state'));
 };
+$('usage-settings-form').onsubmit = async (e) => {
+  e.preventDefault();
+  await run(async () => {
+    await api('usage/settings', {
+      usage_monthly_limit_usd: $('usage-monthly-limit').value,
+      usage_warn_percent: $('usage-warning-percent').value,
+      usage_text_input_per_million: $('usage-text-input-rate').value,
+      usage_text_output_per_million: $('usage-text-output-rate').value,
+      usage_live_per_minute: $('usage-live-rate').value,
+    });
+    return api('state');
+  }, e.submitter);
+};
+$('backup-settings-form').onsubmit = async (e) => {
+  e.preventDefault();
+  await run(() => api('backups/settings', {
+    backup_enabled: String($('backup-enabled').checked),
+    backup_interval_hours: $('backup-interval').value,
+    backup_keep: $('backup-keep').value,
+  }), e.submitter);
+};
+$('backup-create-now').onclick = async (event) => {
+  await run(async () => {
+    await api('backups/create', {});
+    return api('state');
+  }, event.currentTarget);
+};
 $('memory-form').onsubmit = async (e) => {
   e.preventDefault();
   if (await run(() => api('memory', { content: $('memory-content').value }), e.submitter))
