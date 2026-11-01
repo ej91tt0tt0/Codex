@@ -615,7 +615,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith('/api/memories?'):
             params = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             query = params.get('q',[''])[0][:150]
-            return self.reply({'memories':long_memory.select(connect,query,limit=50),
+            return self.reply({'memories':long_memory.select(connect,query,limit=50,respect_enabled=False),
                                'total':long_memory.memory_count(connect)})
         if self.path == '/api/live/archives':
             return self.reply({'archives': live_archive.listing(connect)})
