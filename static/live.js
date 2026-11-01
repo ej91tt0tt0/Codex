@@ -6,6 +6,16 @@
   const stopButton = $('live-stop');
   const muteButton = $('live-mute');
   const voiceSelector = $('live-voice');
+  const autoStart = $('live-auto-start');
+  const AUTO_START_KEY = 'aster-live-auto-start-v1';
+  let autoStartEnabled = false;
+  try { autoStartEnabled = localStorage.getItem(AUTO_START_KEY) === 'true'; } catch {}
+  autoStart.checked = autoStartEnabled;
+  autoStart.addEventListener('change', () => {
+    autoStartEnabled = autoStart.checked;
+    try { localStorage.setItem(AUTO_START_KEY, String(autoStartEnabled)); } catch {}
+    diagnose(autoStartEnabled ? '次回から画面を開くと音声接続します。API料金が発生します。' : '次回の自動音声接続を停止しました。');
+  });
   const status = $('live-status');
   const diagnostics = $('live-diagnostics');
   const captions = $('live-captions');
@@ -323,6 +333,8 @@
     }
   }
   startButton.addEventListener('click', start);
+  // Opt-in only: never create billable sessions automatically on first visit.
+  if (autoStartEnabled) start();
   stopButton.addEventListener('click', stop);
   muteButton.addEventListener('click', toggleMute);
   window.addEventListener('pagehide', () => {
