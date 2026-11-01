@@ -18,7 +18,7 @@ class Structure(HTMLParser):
         ident = attrs.get("id")
         if ident:
             self.ids.append(ident)
-            self.ancestors[ident] = [name for name, _ in self.stack] + [tag]
+            self.ancestors[ident] = list(self.stack) + [(tag, ident)]
         if tag not in {"input","meta","link","img","source","hr","br","wbr","area"}:
             self.stack.append((tag, ident))
     def handle_endtag(self, tag):
@@ -53,6 +53,12 @@ class CinematicUITests(unittest.TestCase):
         self.assertIn("設定・字幕・詳細情報", self.home)
         self.assertIn("文字入力・会話履歴", self.home)
         self.assertIn("home-live-mode .home-live-buttons", self.style)
+        # Hidden details must contain settings, but stop/mute must remain reachable.
+        self.assertIn(("details", "home-advanced"), self.dom.ancestors["live-captions"])
+        self.assertIn(("details", "home-advanced"), self.dom.ancestors["conversation-mode"])
+        self.assertIn(("details", "home-extra-panel"), self.dom.ancestors["text-input"])
+        self.assertNotIn(("details", "home-advanced"), self.dom.ancestors["live-stop"])
+        self.assertNotIn(("details", "home-advanced"), self.dom.ancestors["live-mute"])
 
     def test_cinematic_is_skippable_reduced_motion_and_plays_once_per_tab(self):
         self.assertIn('id="aster-intro"', self.home)
