@@ -1,0 +1,74 @@
+/* Dedicated ASTER conversation archive: dark, restrained, legible. */
+.archive-main { width: min(1380px, 100%); margin: 0 auto; padding: 0 30px 80px; }
+.archive-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 4px; min-height: 80px;
+  border-bottom: 1px solid rgba(99,165,206,.32);
+}
+.archive-header .brand { font-family: var(--serif); font-size: 27px; }
+.archive-header nav a { color: #b0dafa; font-size: 12px; text-decoration: none; letter-spacing: .04em; }
+.archive-header nav a:hover { color: white; }
+.archive-heading { margin: 46px auto 28px; max-width: 1120px; }
+.archive-heading h1 { margin: 8px 0; font-size: clamp(26px, 3.3vw, 42px); font-weight: 300; }
+.archive-heading .hint { max-width: 850px; line-height: 1.85; }
+.archive-layout { display: grid; grid-template-columns: minmax(235px, 33%) minmax(0, 1fr); gap: 18px; align-items: start; }
+.archive-list-panel, .archive-detail-panel {
+  border: 1px solid rgba(83,142,183,.47);
+  background: rgba(5,17,31,.84);
+  box-shadow: inset 0 1px rgba(131,218,255,.05), 0 16px 50px rgba(0,0,0,.12);
+  padding: 23px 22px;
+  min-width: 0;
+}
+.archive-list-panel { position: sticky; top: 104px; max-height: calc(100dvh - 118px); overflow: auto; scrollbar-color: #3f7295 transparent; }
+.archive-panel-title { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.archive-panel-title h2, .archive-panel-title h3 { margin: 0; }
+.archive-panel-title button { min-height: 33px; padding: 6px 12px; font-size: 11px; }
+.archive-list { display: grid; gap: 9px; margin-top: 14px; }
+.archive-list a {
+  display: block;
+  text-decoration: none;
+  padding: 14px 13px;
+  background: rgba(13,35,57,.7);
+  border: 1px solid #324e6d;
+  border-left: 2px solid #3e718f;
+  color: #e3f5ff;
+}
+.archive-list a:hover, .archive-list a.active {
+  background: rgba(28,76,117,.66);
+  border-color: #83cffe;
+  border-left-color: #b7ecff;
+}
+.archive-list a .archive-item-date { display: block; color: #98c6e3; font: 11px/1.5 Consolas, monospace; }
+.archive-list a .archive-item-summary { display: block; margin-top: 7px; font-size: 12px; line-height: 1.6; max-height: 3.2em; overflow: hidden; overflow-wrap: anywhere; }
+.archive-list a .archive-item-status { display: inline-block; margin-top: 6px; font-size: 10px; color: #88a7bf; }
+.archive-detail-panel { min-height: 350px; }
+.archive-detail-panel h2 { font-size: 23px; margin: 6px 0; font-weight: 300; }
+.archive-detail-panel h3 { margin: 26px 0 10px; font-size: 13px; letter-spacing: .08em; }
+.archive-meta { color: #91b5d2; font: 11px/1.65 Consolas, monospace; }
+.archive-summary { padding: 14px 16px; background: rgba(18,52,81,.33); color: #e6f6ff; font-size: 14px; line-height: 1.9; border-left: 2px solid #83d6ff; white-space: pre-wrap; overflow-wrap: anywhere; }
+.archive-topics { display: flex; flex-wrap: wrap; gap: 8px; min-height: 25px; }
+.archive-topics span { padding: 5px 10px; border: 1px solid #41688a; font-size: 11px; color: #c0e8fc; background: rgba(12,34,55,.75); }
+.archive-transcript { margin: 12px 0; border: 1px solid #31516e; background: rgba(1,12,24,.56); padding: 10px 16px; max-height: 680px; overflow: auto; scrollbar-color: #48718e #091b2e; }
+.archive-turn { display: grid; grid-template-columns: 80px minmax(0,1fr); gap: 12px; margin: 0; padding: 12px 0; border-bottom: 1px solid rgba(108,167,210,.15); color: #c9e4f6; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.archive-turn:last-child { border: 0; }
+.archive-turn strong { font-size: 11px; color: #7cc7f0; }
+.archive-turn.aster-turn { color: #eaf9ff; }
+.archive-turn.aster-turn strong { color: #c9f3ff; }
+.archive-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.archive-actions button { padding: 8px 14px; font-size: 11px; }
+.archive-danger-row { justify-content: flex-end; border-top: 1px solid #38536c; margin-top: 26px; padding-top: 18px; }
+.archive-detail-panel .hint { font-size: 12px; }
+@media (max-width: 790px) {
+  .archive-main { padding: 0 16px 45px; }
+  .archive-header { padding: 12px 0; }
+  .archive-heading { margin: 25px auto 20px; }
+  .archive-layout { grid-template-columns: 1fr; }
+  .archive-list-panel { position: static; max-height: 240px; }
+  .archive-detail-panel { padding: 19px 14px; }
+  .archive-transcript { max-height: 480px; }
+}
+@media (max-width: 420px) {
+  .archive-main { padding: 0 10px 36px; }
+  .archive-list-panel, .archive-detail-panel { padding: 14px 12px; }
+  .archive-turn { grid-template-columns: 55px minmax(0,1fr); gap: 6px; }
+}

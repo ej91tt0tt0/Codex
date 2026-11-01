@@ -1,0 +1,199 @@
+/* ASTER / quiet orbital background and spatial microphone instrument. */
+.cosmos-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(ellipse 60% 60% at 46% 42%, rgba(32, 96, 146, .11), transparent 78%),
+              radial-gradient(ellipse 45% 30% at 85% 80%, rgba(57, 96, 192, .1), transparent 80%);
+}
+.cosmos-background .star-layer {
+  position: absolute;
+  inset: -35%;
+  background-repeat: repeat;
+  will-change: transform;
+  opacity: .65;
+}
+.cosmos-background .stars-distant {
+  background-image:
+    radial-gradient(circle, rgba(224,246,255,.63) .8px, transparent 1.6px),
+    radial-gradient(circle, rgba(97,175,242,.42) .7px, transparent 1.8px),
+    radial-gradient(circle, rgba(250,253,255,.38) .6px, transparent 1.6px);
+  background-size: 101px 127px, 173px 191px, 247px 229px;
+  background-position: 13px 27px, 71px 110px, 165px 78px;
+  animation: cosmos-drift-one 85s linear infinite alternate;
+}
+.cosmos-background .stars-middle {
+  background-image:
+    radial-gradient(circle, rgba(199,238,255,.7) 1.1px, transparent 2.4px),
+    radial-gradient(circle, rgba(124,216,255,.56) .8px, transparent 2px);
+  background-size: 233px 269px, 311px 287px;
+  background-position: 95px 85px, 28px 103px;
+  opacity: .48;
+  animation: cosmos-drift-two 66s linear infinite alternate;
+}
+.cosmos-background .stars-near {
+  background-image:
+    radial-gradient(circle, rgba(225,249,255,.82) 1.2px, transparent 2.8px),
+    radial-gradient(circle, rgba(128,212,255,.62) .9px, transparent 2.6px);
+  background-size: 389px 351px, 463px 417px;
+  background-position: 194px 128px, 113px 201px;
+  opacity: .45;
+  animation: cosmos-drift-three 48s ease-in-out infinite alternate;
+}
+@keyframes cosmos-drift-one {
+  from { transform: translate3d(-2.5%, -2%, 0) rotate(-2deg); }
+  to { transform: translate3d(3%, 4%, 0) rotate(3deg); }
+}
+@keyframes cosmos-drift-two {
+  from { transform: translate3d(3%, -4%, 0) rotate(3deg); }
+  to { transform: translate3d(-3%, 4%, 0) rotate(-3deg); }
+}
+@keyframes cosmos-drift-three {
+  from { transform: translate3d(-4%, 2%, 0) rotate(1deg); }
+  to { transform: translate3d(4%, -3%, 0) rotate(-2deg); }
+}
+body.cosmos-page > main { position: relative; z-index: 1; }
+body.cosmos-page .voice-card { isolation: isolate; }
+body.cosmos-page .voice-orb {
+  perspective: 780px;
+  transform-style: preserve-3d;
+  isolation: isolate;
+}
+body.cosmos-page .voice-orb::before,
+body.cosmos-page .voice-orb::after {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border: 1px solid rgba(93, 196, 255, .29);
+  border-radius: 50%;
+  pointer-events: none;
+}
+body.cosmos-page .voice-orb::before {
+  inset: 17%;
+  background: radial-gradient(circle at 37% 30%, rgba(116,222,255,.12), transparent 55%),
+              radial-gradient(ellipse at 66% 75%, rgba(42,131,233,.09), transparent 65%);
+  box-shadow: inset 0 0 34px rgba(46,117,204,.08), 0 0 42px rgba(54,147,226,.08);
+  transform: translateZ(-10px);
+}
+body.cosmos-page .voice-orb::after {
+  inset: 4%;
+  border-style: dashed;
+  opacity: .34;
+  animation: orb-bezel 42s linear infinite;
+}
+body.cosmos-page .orb-gyro {
+  position: absolute;
+  inset: 7%;
+  z-index: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(103, 213, 255, .33);
+  pointer-events: none;
+  transform-style: preserve-3d;
+  box-shadow: inset 0 0 13px rgba(93,201,255,.18), 0 0 22px rgba(67,162,245,.12);
+}
+body.cosmos-page .orb-gyro::before,
+body.cosmos-page .orb-gyro::after {
+  content: '';
+  position: absolute;
+  inset: -7%;
+  border: 1px dashed rgba(119, 210, 255, .46);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(93,183,244,.12);
+}
+body.cosmos-page .orb-gyro::after {
+  inset: 15%;
+  border: 1px solid rgba(167,232,255,.32);
+}
+body.cosmos-page .orb-gyro-a {
+  animation: gyro-orbit-a 23s linear infinite;
+  border-left-color: #c1f0ff;
+  border-right-color: transparent;
+}
+body.cosmos-page .orb-gyro-b {
+  inset: 19%;
+  border-width: 1px;
+  border-top-color: #95dfff;
+  border-bottom-color: rgba(83,190,255,.15);
+  animation: gyro-orbit-b 17s linear infinite;
+}
+body.cosmos-page .orb-gyro-c {
+  inset: 1%;
+  border: 1px dotted rgba(95,177,229,.38);
+  box-shadow: none;
+  animation: gyro-orbit-c 51s linear infinite;
+}
+body.cosmos-page .voice-orb canvas {
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(67,168,231,.2));
+}
+body.cosmos-page .live-orb-action { z-index: 5; }
+body.cosmos-page .voice-orb.listening .orb-gyro {
+  border-color: rgba(154,239,255,.56);
+  box-shadow: 0 0 25px rgba(73,197,255,.26);
+}
+@keyframes gyro-orbit-a {
+  from { transform: rotateX(69deg) rotateZ(0deg); }
+  to { transform: rotateX(69deg) rotateZ(360deg); }
+}
+@keyframes gyro-orbit-b {
+  from { transform: rotateY(72deg) rotateZ(0deg); }
+  to { transform: rotateY(72deg) rotateZ(-360deg); }
+}
+@keyframes gyro-orbit-c {
+  from { transform: rotateX(26deg) rotateY(12deg) rotateZ(0deg); }
+  to { transform: rotateX(26deg) rotateY(12deg) rotateZ(360deg); }
+}
+@keyframes orb-bezel { to { transform: rotate(360deg); } }
+/* Live captions are now always part of the visible home, not advanced settings. */
+.home-live-mode .home-live-captions {
+  display: block;
+  width: min(100%, 690px);
+  min-height: 135px;
+  max-height: 255px;
+  margin: 18px auto 12px;
+  overflow-y: auto;
+  background: rgba(4, 13, 25, .71);
+  border: 1px solid #375773;
+  border-left: 2px solid rgba(130, 228, 255, .64);
+  scrollbar-color: #416c8c #081525;
+  text-align: left;
+}
+.home-live-mode .home-live-captions p { line-height: 1.7; }
+.home-live-mode .home-log-heading {
+  margin: 14px auto 0;
+  width: min(100%, 690px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font: 11px/1.5 'Segoe UI', sans-serif;
+  color: #aad7ee;
+  letter-spacing: .06em;
+}
+.home-live-mode .home-log-heading a { color: #9cdffc; font-size: 11px; }
+.home-live-mode .archive-save-status {
+  margin: 2px auto 0;
+  width: min(100%, 690px);
+  text-align: left;
+  font-size: 11px;
+  color: #a3c5dd;
+  min-height: 16px;
+}
+.home-live-mode .voice-card { padding-bottom: 22px; }
+@media (max-width: 650px) {
+  body.cosmos-page .orb-gyro { border-width: 1px; }
+  .home-live-mode .home-live-captions { min-height: 125px; max-height: 210px; }
+  .home-live-mode .home-log-heading { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cosmos-background .star-layer,
+  body.cosmos-page .orb-gyro,
+  body.cosmos-page .voice-orb::after { animation: none !important; will-change: auto; }
+}
+@media (forced-colors: active) {
+  .cosmos-background { display: none; }
+  body.cosmos-page .orb-gyro { border: 1px solid CanvasText; }
+}

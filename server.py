@@ -17,6 +17,7 @@ import companion
 import autonomy
 import realtime_proxy
 import live_proxy
+import live_archive
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -33,7 +34,7 @@ CONVERSATION_LOCK = threading.RLock()
 STATE_SNAPSHOT_LOCK = threading.Lock()
 RESEARCH_LOCK = threading.Lock()
 API_STATUS = {}
-APP_VERSION = '1.4.0'
+APP_VERSION = '1.5.0'
 WEATHER_URL = 'https://www.jma.go.jp/bosai/forecast/data/forecast/230000.json'
 REGIONAL_TOPICS = '碧南市 天気,名鉄三河線 運行,知多半島道路 交通,知多高速道路 交通,国道23号 愛知 渋滞,愛知県 交通情報'
 
@@ -60,6 +61,7 @@ def init():
         CREATE TABLE IF NOT EXISTS cache(key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE IF NOT EXISTS news(id INTEGER PRIMARY KEY, title TEXT, url TEXT UNIQUE, published TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP);
         ''')
+        live_archive.init_schema(c)
         companion.init_schema(c)
         autonomy.init_schema(c)
         for k, v in [('topics', '天気,交通情報,政治,ニュース,スポーツ,ゲーム,エンタメ'), ('automatic', 'true'), ('last_collected', ''), ('remember', 'true'), ('region', '愛知県碧南市浜田町'), ('regional_topics', REGIONAL_TOPICS), ('proactive_enabled', 'true'), ('proactive_interval', '600'), ('proactive_topics', 'false'), ('natural_voice', 'true'), ('high_quality_input', 'true'), ('hands_free', 'true'), ('web_search', 'true'), ('ai_collect', 'true'), ('last_research_attempt', ''), *DEFAULTS.items()]:
@@ -603,6 +605,17 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply({'app':'ASTER','version':APP_VERSION,'data_id':data_identifier()})
         if self.path == '/api/state':
             return self.reply(state())
+        if self.path == '/api/live/archives':
+            return self.reply({'archives': live_archive.listing(connect)})
+        if self.path.startswith('/api/live/archive?'):
+            identifier = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get('id', [''])[0]
+            try:
+                record = live_archive.detail(connect, identifier)
+            except ValueError:
+                return self.reply({'error': '記録IDが不正です。'}, 400)
+            if record is None:
+                return self.reply({'error': '会話記録が見つかりません。'}, 404)
+            return self.reply({'archive': record})
         if self.path == '/api/backup':
             headers_sent=False
             try:
@@ -644,6 +657,10 @@ class Handler(BaseHTTPRequestHandler):
             '/home-live.css': ('home-live.css', 'text/css'),
             '/cinematic.css': ('cinematic.css', 'text/css'),
             '/cinematic.js': ('cinematic.js', 'text/javascript'),
+            '/cosmos.css': ('cosmos.css', 'text/css'),
+            '/archive': ('archive.html', 'text/html'),
+            '/archive.js': ('archive.js', 'text/javascript'),
+            '/archive.css': ('archive.css', 'text/css'),
             '/realtime': ('realtime.html', 'text/html'),
             '/realtime.js': ('realtime.js', 'text/javascript'),
             '/live': ('live.html', 'text/html'),
@@ -667,6 +684,37 @@ class Handler(BaseHTTPRequestHandler):
         origin = self.headers.get('Origin')
         if origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'):
             return self.reply({'error': 'Cross-origin request blocked'}, 403)
+        if self.path in ('/api/live/archive', '/api/live/archive/delete', '/api/live/archive/retry'):
+            if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
+                return self.reply({'error': 'JSON形式が必要です。'}, 415)
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                max_size = 750_000 if self.path == '/api/live/archive' else 256
+                if not 0 < size <= max_size:
+                    raise ValueError('Archive size invalid')
+                body = json.loads(self.rfile.read(size))
+                if self.path == '/api/live/archive':
+                    identifier, created = live_archive.save(connect, body)
+                    if created:
+                        threading.Thread(target=live_archive.summarise, args=(connect, identifier),
+                                         daemon=True).start()
+                    return self.reply({'id': identifier, 'created': created,
+                                       'url': '/archive#' + identifier}, 201 if created else 200)
+                if not isinstance(body, dict):
+                    raise ValueError('Invalid archive request')
+                identifier = body.get('id')
+                if self.path.endswith('/delete'):
+                    deleted = live_archive.delete(connect, identifier)
+                    return self.reply({'deleted': deleted})
+                started = live_archive.restart_summary(connect, identifier)
+                if started:
+                    threading.Thread(target=live_archive.summarise, args=(connect, identifier),
+                                     daemon=True).start()
+                return self.reply({'started': started})
+            except (ValueError, TypeError, json.JSONDecodeError):
+                return self.reply({'error': '会話記録データが不正です。'}, 400)
+            except Exception:
+                return self.reply({'error': '会話記録の保存・更新に失敗しました。'}, 502)
         if self.path == '/api/transcribe':
             try:
                 size = int(self.headers.get('Content-Length', '0'))
@@ -837,7 +885,7 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == '/api/clear':
                 # Complete earlier writes before deleting, including work started in another tab.
                 with CONVERSATION_LOCK, COLLECT_LOCK, RESEARCH_LOCK, connect() as c:
-                    for table in ('messages', 'health', 'memories', 'news', 'improvement_requests', 'external_actions', 'research_runs', 'diaries', 'goals', 'reminders', 'reminder_deliveries', 'agent_tasks', 'agent_runs'):
+                    for table in ('messages', 'health', 'memories', 'news', 'improvement_requests', 'external_actions', 'research_runs', 'diaries', 'goals', 'reminders', 'reminder_deliveries', 'agent_tasks', 'agent_runs', 'live_archives'):
                         c.execute(f'DELETE FROM {table}')
                     c.execute('DELETE FROM cache')
                     for key in (*companion.PERSONAL_FIELDS,'custom_preferences'):

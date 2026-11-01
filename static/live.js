@@ -127,6 +127,94 @@
   let sessionId = null;
   let lastSpeaker = null;
   let lastTextAt = 0;
+  let archiveId = null;
+  let archiveStarted = null;
+  let archiveSent = false;
+  let archiveTurns = [];
+  let archiveLength = 0;
+  let archiveTruncated = false;
+  const ARCHIVE_CHAR_LIMIT = 175000;
+  function archiveNotice(text, link) {
+    const target = $('archive-save-status');
+    if (!target) {
+      diagnose(text);
+      return;
+    }
+    target.textContent = text;
+    if (link) {
+      const a = document.createElement('a');
+      a.href = link;
+      a.textContent = ' 会話記録を開く';
+      target.append(a);
+    }
+  }
+  function startArchive() {
+    // Never save API credentials or raw microphone recordings.
+    const temporary = isHome && $('temporary-chat')?.checked;
+    archiveId = temporary ? null : (window.crypto?.randomUUID?.().replaceAll('-', '') || null);
+    if (isHome && $('temporary-chat')) $('temporary-chat').disabled = true;
+    archiveStarted = new Date().toISOString();
+    archiveSent = false;
+    archiveTurns = [];
+    archiveLength = 0;
+    archiveTruncated = false;
+    captions.replaceChildren();
+    lastSpeaker = null;
+    lastTextAt = 0;
+    if (isHome) archiveNotice(temporary ? '一時チャットのため、このLive通話は保存しません。' : '通話中の字幕を記録しています。終了すると自動保存されます。');
+  }
+  function archivePayload() {
+    if (!archiveId || !archiveStarted || !archiveTurns.length) return null;
+    return { id: archiveId, started: archiveStarted,
+      ended: new Date().toISOString(),
+      turns: archiveTurns.map(t => ({ speaker: t.speaker, text: t.text })) };
+  }
+  async function postArchive(payload) {
+    const res = await fetch('/api/live/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+  function retryNotice(payload) {
+    const target = $('archive-save-status');
+    archiveNotice('会話記録の保存に失敗しました。通信を確認して再保存してください。');
+    if (!target) return;
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'secondary';
+    retry.textContent = '再保存';
+    retry.onclick = () => {
+      retry.disabled = true;
+      archiveNotice('再保存しています…');
+      postArchive(payload).then((data) => {
+        archiveNotice('会話記録を保存しました。AI要約は順次生成されます。', data.url);
+      }).catch(() => retryNotice(payload));
+    };
+    target.append(retry);
+  }
+  function publishArchive(beacon = false) {
+    const payload = archivePayload();
+    if (!payload) return;
+    if (!beacon && archiveSent) return;
+    archiveSent = true;
+    if (archiveTruncated && isHome)
+      diagnose('長い会話のため保存できる文字数の上限を超えました。記録は上限までです。');
+    if (beacon && navigator.sendBeacon) {
+      try {
+        if (navigator.sendBeacon('/api/live/archive',
+          new Blob([JSON.stringify(payload)], { type: 'application/json' }))) return;
+      } catch {}
+    }
+    if (!beacon) archiveNotice('会話を保存しています…');
+    postArchive(payload).then((data) => {
+      if (!beacon) archiveNotice('会話記録を保存しました。AI要約は順次生成されます。', data.url);
+    }).catch(() => {
+      if (!beacon) retryNotice(payload);
+    });
+  }
 
   const label = (message) => { status.textContent = message; };
   const diagnose = (message) => {
@@ -136,9 +224,14 @@
     while (diagnostics.children.length > 25) diagnostics.lastElementChild.remove();
   };
   function caption(speaker, text) {
-    if (!text) return;
+    if (!text || typeof text !== 'string') return;
+    if (!archiveStarted) startArchive();
     const now = performance.now();
-    if (lastSpeaker !== speaker || now - lastTextAt > 5500 || !captions.lastElementChild) {
+    const last = archiveTurns[archiveTurns.length - 1];
+    const newTurn = lastSpeaker !== speaker || now - lastTextAt > 5500 ||
+      !captions.lastElementChild || !last || last.text.length >= 5900;
+    const atBottom = captions.scrollHeight - captions.scrollTop - captions.clientHeight < 70;
+    if (newTurn) {
       const p = document.createElement('p');
       p.className = speaker === 'あなた' ? 'live-caption-user' : 'live-caption-assistant';
       const name = document.createElement('strong');
@@ -146,11 +239,36 @@
       const span = document.createElement('span');
       p.append(name, span);
       captions.append(p);
-      while (captions.children.length > 60) captions.firstElementChild.remove();
     }
     captions.lastElementChild.querySelector('span').append(document.createTextNode(text));
+    // Preserve all caption turns; the UI scrolls rather than removing older lines.
+    if (archiveLength < ARCHIVE_CHAR_LIMIT && archiveTurns.length < 1000) {
+      let remaining = text.slice(0, ARCHIVE_CHAR_LIMIT - archiveLength);
+      if (newTurn && archiveTurns.length < 1000) {
+        const first = remaining.slice(0, 5900);
+        archiveTurns.push({ speaker, text: first });
+        remaining = remaining.slice(first.length);
+        archiveLength += first.length;
+      } else if (!newTurn) {
+        const target = archiveTurns[archiveTurns.length - 1];
+        const chunk = remaining.slice(0, 6000 - target.text.length);
+        target.text += chunk;
+        remaining = remaining.slice(chunk.length);
+        archiveLength += chunk.length;
+      }
+      while (remaining && archiveTurns.length < 1000) {
+        const chunk = remaining.slice(0, 5900);
+        archiveTurns.push({ speaker, text: chunk });
+        archiveLength += chunk.length;
+        remaining = remaining.slice(chunk.length);
+      }
+      if (remaining) archiveTruncated = true;
+    } else {
+      archiveTruncated = true;
+    }
     lastSpeaker = speaker;
     lastTextAt = now;
+    if (atBottom) captions.scrollTop = captions.scrollHeight;
   }
   function resetUI() {
     startButton.disabled = false;
@@ -161,6 +279,10 @@
     updateHomeVisual('READY');
   }
   function cleanup(message) {
+    publishArchive(false);
+    if (isHome && $('temporary-chat')) $('temporary-chat').disabled = false;
+    archiveStarted = null;
+    archiveId = null;
     generation++;
     starting = false;
     ready = false;
@@ -201,6 +323,7 @@
   function onEvent(event) {
     switch (event.type) {
       case 'session.started':
+        startArchive();
         ready = true;
         starting = false;
         sessionId = event.session?.id || sessionId;
@@ -460,6 +583,7 @@
   stopButton.addEventListener('click', stop);
   muteButton.addEventListener('click', toggleMute);
   window.addEventListener('pagehide', () => {
+    publishArchive(true);
     // Best effort: tell Live to close before the browser tears down WebRTC.
     if (ready && channel?.readyState === 'open' && !ending) {
       try {
