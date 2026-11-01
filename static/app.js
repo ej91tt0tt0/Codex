@@ -714,6 +714,10 @@ $('mic-toggle').onclick = async () => {
       } catch {}
     }
     handsfree.stop();
+    if (HOME_LIVE_DEFAULT) {
+      document.body.classList.remove('classic-home-active');
+      window.AsterLiveHome?.refresh?.();
+    }
   } else await companion.startVoice();
 };
 $('hands-free').onchange = async () => {
