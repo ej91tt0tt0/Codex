@@ -94,6 +94,8 @@
     let seen = false;
     try { seen = sessionStorage.getItem(INTRO_KEY) === 'true'; } catch {}
     let completed = false;
+    let displayed = false;
+    const app = document.querySelector('main');
     let timer = null;
     let fadeTimer = null;
     const finish = () => {
@@ -102,14 +104,19 @@
       clearTimeout(timer);
       clearTimeout(fadeTimer);
       try { sessionStorage.setItem(INTRO_KEY, 'true'); } catch {}
-      // Unblock the application immediately, leaving the film to fade unobtrusively.
-      intro.classList.add('intro-fading');
+      if (app) app.inert = false;
+      document.body.classList.remove('intro-playing');
       intro.setAttribute('aria-modal', 'false');
       intro.inert = true;
-      fadeTimer = setTimeout(() => {
+      if (displayed) {
+        intro.classList.add('intro-fading');
+        fadeTimer = setTimeout(() => {
+          intro.hidden = true;
+          orb?.focus({ preventScroll: true });
+        }, 280);
+      } else {
         intro.hidden = true;
-        orb?.focus({ preventScroll: true });
-      }, reduced ? 0 : 280);
+      }
       // Delay any opt-in auto-connect until the cinematic intro finishes.
       window.dispatchEvent(new Event('aster:boot-complete'));
     };
@@ -119,7 +126,10 @@
       return;
     }
     intro.hidden = false;
+    displayed = true;
     intro.inert = false;
+    if (app) app.inert = true;
+    document.body.classList.add('intro-playing');
     $('intro-skip')?.focus({ preventScroll: true });
     const skip = () => finish();
     $('intro-skip')?.addEventListener('click', skip, { once: true });
