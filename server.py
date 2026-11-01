@@ -785,8 +785,12 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('Invalid privacy mode')
                 cost_guard.check_budget(cost_guard.minimum_live_cost(connect))
                 live_context = '' if request.get('temporary') else long_memory.session_context(connect)
+                resume_text = request.get('resume','')
+                if not isinstance(resume_text,str) or len(resume_text)>3500:
+                    raise ValueError('Invalid resume transcript')
                 session = live_proxy.create_live_session(
-                    request.get('sdp'), request.get('voice', 'marin'), memory_context=live_context
+                    request.get('sdp'), request.get('voice', 'marin'),
+                    memory_context=live_context, resume_context=resume_text
                 )
                 cost_guard.start_live(session['session']['id'])
                 return self.reply(session, 201)
