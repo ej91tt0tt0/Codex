@@ -17,7 +17,7 @@ def mobile_origin():
         host = parsed.hostname
         if (
             parsed.scheme != 'https'
-            or not host or not re.fullmatch(r'[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\\.ts\\.net', host)
+            or not host or not re.fullmatch(r'[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.ts\.net', host)
             or parsed.username or parsed.password
             or parsed.port not in (None, 443)
             or parsed.path not in ('', '/')
@@ -65,7 +65,7 @@ def mobile_request(headers, port, peer):
     identity = headers.get('Tailscale-User-Login', '')
     if forwarded_host != hostname or forwarded_proto != 'https':
         return False
-    if not identity or len(identity) > 256 or '\\r' in identity or '\\n' in identity:
+    if not identity or len(identity) > 256 or '\r' in identity or '\n' in identity:
         return False
     try:
         request_host = urllib.parse.urlsplit('https://' + headers.get('Host', ''))
