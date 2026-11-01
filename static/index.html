@@ -143,6 +143,7 @@
             ><button type="button" id="copy-reply" class="text-button">コピー</button>
           </div>
           <p id="live-status" class="home-live-status" role="status" aria-live="polite">TALKを押して、音声会話を開始</p>
+          <button id="live-reconnect" type="button" class="secondary live-reconnect" hidden>直前の会話を引き継いで再接続</button>
           <p class="home-billing-note">LIVE · 接続中はAPI利用料が発生します</p>
           <div class="voice-buttons home-live-buttons">
             <button id="live-start" type="button">リアルタイム音声を開始</button>
@@ -202,6 +203,10 @@
             </label>
             <label class="check" for="live-auto-start">
               <input id="live-auto-start" type="checkbox" />次回から起動時に接続して待機する
+            </label>
+            <label class="check" for="live-auto-reconnect">
+              <input id="live-auto-reconnect" type="checkbox" />切断時に最大2回自動で再接続する（再接続も課金対象）
+
             </label>
           </div>
           <p class="hint home-live-help">自分から話しかけるまでASTERは話し始めません。初回はTALKを押してマイクを許可してください。自動接続を有効にすると、無言でもAPI料金が発生します。</p>
@@ -945,7 +950,7 @@
       </div>
       <footer class="app-footer">
         <span class="footer-brand"
-          >ASTER 1.8.2<span class="footer-divider"> / </span>PERSONAL COMPANION</span
+          >ASTER 1.9<span class="footer-divider"> / </span>PERSONAL COMPANION</span
         ><span id="session-privacy">通常の会話 · このPCに保存</span
         ><time id="local-clock" aria-label="日本時間"></time>
       </footer>
