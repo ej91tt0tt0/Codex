@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 
 _LOCK = threading.RLock()
@@ -50,6 +50,7 @@ def init_schema(db):
         session_id TEXT PRIMARY KEY,
         started TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         measured_seconds REAL NOT NULL DEFAULT 0,
+        rate_usd_per_min TEXT NOT NULL DEFAULT '0.05',
         finished INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS usage_events_date ON usage_events(created);
@@ -73,8 +74,13 @@ def _rates(db):
 
 
 def _current_periods():
-    now=datetime.now(timezone.utc)
-    return now.strftime('%Y-%m-01 00:00:00'),now.strftime('%Y-%m-%d 00:00:00')
+    # SQLite timestamps use UTC. Present 'today' and 'month' in Japan time.
+    jst=timezone(timedelta(hours=9))
+    now=datetime.now(jst)
+    month=now.replace(day=1,hour=0,minute=0,second=0,microsecond=0)
+    day=now.replace(hour=0,minute=0,second=0,microsecond=0)
+    return (month.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+            day.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'))
 
 
 def _totals(db):
@@ -84,9 +90,9 @@ def _totals(db):
     month_amount=sum((Decimal(x['amount_usd']) for x in events),Decimal('0'))
     today=sum((Decimal(x['amount_usd']) for x in events if x['created']>=day),Decimal('0'))
     unknown=sum(1 for x in events if not x['observed'])
-    live=db.execute("SELECT started,measured_seconds FROM usage_live_sessions WHERE started>=?",(month,)).fetchall()
-    live_all=sum((Decimal(str(x['measured_seconds']))*r['usage_live_per_minute']/60 for x in live),Decimal('0'))
-    live_today=sum((Decimal(str(x['measured_seconds']))*r['usage_live_per_minute']/60 for x in live if x['started']>=day),Decimal('0'))
+    live=db.execute("SELECT started,measured_seconds,rate_usd_per_min FROM usage_live_sessions WHERE started>=?",(month,)).fetchall()
+    live_all=sum((Decimal(str(x['measured_seconds']))*Decimal(x['rate_usd_per_min'])/60 for x in live),Decimal('0'))
+    live_today=sum((Decimal(str(x['measured_seconds']))*Decimal(x['rate_usd_per_min'])/60 for x in live if x['started']>=day),Decimal('0'))
     return month_amount+live_all,today+live_today,unknown,len(live)
 
 
@@ -171,7 +177,9 @@ def start_live(session_id):
         raise ValueError('Live session ID invalid')
     if not _DB_PATH:return
     with _LOCK, _conn() as db:
-        db.execute("INSERT OR IGNORE INTO usage_live_sessions(session_id) VALUES (?)",(session_id,))
+        rate=str(_rates(db)['usage_live_per_minute'])
+        db.execute("INSERT OR IGNORE INTO usage_live_sessions(session_id,rate_usd_per_min) VALUES (?,?)",
+                   (session_id,rate))
 
 
 def update_live(session_id,seconds,finished=False):
