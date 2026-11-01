@@ -387,7 +387,8 @@
         starting = false;
         sessionId = event.session?.id || sessionId;
         sessionStartedAt = performance.now();
-        retryCount = 0;
+        // Keep cumulative retry count across reconnections. Do not create
+        // infinite paid reconnect loops on an unstable network.
         recoveryContext = '';
         if (resumeButton) resumeButton.hidden = true;
         clearInterval(meteringTimer);
