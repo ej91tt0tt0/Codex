@@ -641,6 +641,7 @@ class Handler(BaseHTTPRequestHandler):
             '/style.css': ('style.css', 'text/css'),
             '/aster-theme.css': ('aster-theme.css', 'text/css'),
             '/live-theme.css': ('live-theme.css', 'text/css'),
+            '/home-live.css': ('home-live.css', 'text/css'),
             '/realtime': ('realtime.html', 'text/html'),
             '/realtime.js': ('realtime.js', 'text/javascript'),
             '/live': ('live.html', 'text/html'),
