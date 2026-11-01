@@ -531,8 +531,11 @@ def generate_reply(s, initiative=None, image=None, private=False):
     payload = {'model': os.environ.get('OPENAI_MODEL', 'gpt-4.1-mini'), 'messages': messages, 'max_completion_tokens': 1000 if config.get('reply_style')=='detailed' else 500, 'store': False}
     req = urllib.request.Request('https://api.openai.com/v1/chat/completions', data=json.dumps(payload).encode(),
                                  headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
+    cost_guard.check_budget()
     with urllib.request.urlopen(req, timeout=60) as res:
-        answer = json.load(res)['choices'][0]['message']['content']
+        data=json.load(res)
+    cost_guard.add_text_usage('proactive',data.get('usage'))
+    answer = data['choices'][0]['message']['content']
     if not isinstance(answer, str) or not answer.strip():
         raise ValueError('AI response is empty')
     return answer
@@ -571,8 +574,11 @@ def speech_audio(text, voice='ash'):
                'instructions': '青年らしい落ち着いた中低音の日本語で、親しい相棒のように話して。高い声や甲高い響きを避け、自然な胸声と抑揚を使い、うれしい内容は笑顔が伝わる弾む声、共感や心配は柔らかく穏やかな声にして。感情は文章の意味に合わせ、単調な棒読みや過剰な演技を避けて。テンポは少し速めで、句読点では短く自然に間を取って。特定の人物の声は模倣しない。'}
     req = urllib.request.Request('https://api.openai.com/v1/audio/speech', data=json.dumps(payload).encode(),
                                  headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
+    cost_guard.check_budget()
     with urllib.request.urlopen(req, timeout=60) as response:
-        return response.read(8_000_000)
+        audio=response.read(8_000_000)
+    cost_guard.add_text_usage('tts_unmetered',None)
+    return audio
 
 
 def transcribe_audio(data, content_type):
@@ -593,8 +599,10 @@ def transcribe_audio(data, content_type):
     parts.append(('--' + boundary + '--\r\n').encode())
     req = urllib.request.Request('https://api.openai.com/v1/audio/transcriptions', data=b''.join(parts),
           headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'multipart/form-data; boundary=' + boundary})
+    cost_guard.check_budget()
     with urllib.request.urlopen(req, timeout=60) as response:
         result = json.load(response)
+    cost_guard.add_text_usage('transcribe_unmetered',None)
     text = result.get('text', '')
     if not isinstance(text, str):
         raise ValueError('Invalid transcription result')
@@ -628,6 +636,27 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/api/backups':
             return self.reply({'backups':data_guard.list_backups(DATA),
                                'enabled':settings().get('backup_enabled','true')})
+        if self.path.startswith('/api/backups/file?'):
+            filename=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get('name',[''])[0]
+            if not re.fullmatch(r'aster-\d{8}T\d{6}Z-[0-9a-f]{8}\.sqlite3',filename):
+                return self.reply({'error':'バックアップ名が不正です。'},400)
+            target=data_guard.directory(DATA)/filename
+            if not target.is_file() or target.is_symlink():
+                return self.reply({'error':'バックアップが見つかりません。'},404)
+            self.send_response(200)
+            self.send_header('Content-Type','application/vnd.sqlite3')
+            self.send_header('Content-Length',str(target.stat().st_size))
+            self.send_header('Content-Disposition','attachment; filename="'+filename+'"')
+            self.send_header('Cache-Control','no-store')
+            self.send_header('X-Content-Type-Options','nosniff')
+            self.end_headers()
+            try:
+                with target.open('rb') as src:
+                    while chunk:=src.read(65536):
+                        self.wfile.write(chunk)
+            except (BrokenPipeError,ConnectionResetError):
+                pass
+            return
         if self.path.startswith('/api/memories?'):
             params = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             query = params.get('q',[''])[0][:150]
