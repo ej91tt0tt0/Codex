@@ -145,6 +145,9 @@ def _source_exists(db, source, source_id):
 def _apply(db, source, source_id, candidates, epoch):
     """Run in a single transaction, rechecking settings/source after inference."""
     with db:
+        # Hold the SQLite write lock through the opt-in/epoch/source check and
+        # inserts. A completed disable/delete must not race with this worker.
+        db.execute('BEGIN IMMEDIATE')
         enabled, actual_epoch = _enabled(db)
         if not enabled or actual_epoch != epoch or not _source_exists(db, source, source_id):
             return 0
@@ -260,6 +263,12 @@ def update_manual(db, identifier, text):
     value = str(text).strip()[:500]
     if not value:
         raise ValueError('記憶する内容を入力してください。')
+    old = db.execute('SELECT topic,source FROM memories WHERE id=?',(int(identifier),)).fetchone()
+    if old and old['source'] != 'manual' and old['topic']:
+        # A manually corrected auto-memory must not be overwritten by new
+        # extraction of a previously inferred field.
+        db.execute('INSERT OR IGNORE INTO memory_suppressions(fingerprint) VALUES (?)',
+                   (_fingerprint(old['topic']),))
     db.execute(
         "UPDATE memories SET content=?,source='manual',topic='',source_ref='',updated=CURRENT_TIMESTAMP WHERE id=?",
         (value,int(identifier)))
