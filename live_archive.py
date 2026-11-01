@@ -155,7 +155,7 @@ def summarise(connect, identifier):
                     {'role': 'user', 'content': segment},
                 ], search=False, max_tokens=420)).strip()
                 compact.append('区間' + str(index) + '/' + str(len(chunks)) + ': ' + digest)
-            source = '\\n'.join(compact)
+            source = '\n'.join(compact)
         response = str(respond([
             {'role': 'system', 'content': prompt},
             {'role': 'user', 'content': source},
