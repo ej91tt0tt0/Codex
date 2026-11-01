@@ -438,11 +438,15 @@ for (const b of document.querySelectorAll('[data-tab]'))
   };
 // The text workspace owns the message form; return to the Live cockpit
 // without losing the user's saved voice/text mode or their draft.
-$('text-workspace-to-voice').onclick = () => {
-  const mode = $('interaction-mode');
-  if (mode.value === 'text') {
-    mode.value = 'voice';
-    mode.dispatchEvent(new Event('change', { bubbles: true }));
+$('text-workspace-to-voice').onclick = async (event) => {
+  // Switch the saved preference without auto-starting the legacy microphone:
+  // the main cockpit's TALK button remains the explicit Live start control.
+  if ($('interaction-mode').value === 'text') {
+    const ok = await companion.perform(
+      () => companion.preferences({ interaction_mode: 'voice' }),
+      event.currentTarget,
+    );
+    if (!ok) return;
   }
   document.querySelector('header [data-tab=chat]').click();
 };
