@@ -6,6 +6,13 @@
   const stage = document.querySelector('.cosmos-background');
   if (!stage) return;
   const root = document.documentElement;
+  const styleState = Object.create(null);
+  function cssVar(key, value) {
+    if (styleState[key] !== value) {
+      root.style.setProperty(key,value);
+      styleState[key] = value;
+    }
+  }
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const isReduced = () => reduced?.matches === true;
   const canvas = document.createElement('canvas');
@@ -174,15 +181,15 @@
     last = time;lastPaint = time;sceneTime += dt;
     floatX += (targetX - floatX) * .035;
     floatY += (targetY - floatY) * .035;
-    root.style.setProperty('--astral-x',Math.round(floatX * .25) + 'px');
-    root.style.setProperty('--astral-y',Math.round(floatY * .25) + 'px');
+    cssVar('--astral-x',Math.round(floatX * .25) + 'px');
+    cssVar('--astral-y',Math.round(floatY * .25) + 'px');
     const active = document.body.classList.contains('home-live-active') ||
       /会話中|接続中/.test(document.getElementById('live-status')?.textContent || '') ||
       /会話中/.test(document.getElementById('realtime-status')?.textContent || '');
     const meterLevel = Number(orb?.querySelector('canvas')?.dataset.level || 0);
     const actualLevel = active && Number.isFinite(meterLevel) ? Math.max(0,Math.min(1,meterLevel)) : 0;
-    root.style.setProperty('--astral-voice',actualLevel.toFixed(3));
-    root.style.setProperty('--astral-glow',Math.round(32 + actualLevel * 22) + 'px');
+    cssVar('--astral-voice',actualLevel.toFixed(3));
+    cssVar('--astral-glow',Math.round(32 + actualLevel * 22) + 'px');
     const velocity = active ? .185 + actualLevel * .34 : .056;
     context.clearRect(0,0,width,height);
     for (const s of stars) drawStar(s,actualLevel,velocity,dt);
@@ -208,15 +215,16 @@
     stop();
     resize();
     if (isReduced()) {
-      root.style.setProperty('--astral-x','0px');
-      root.style.setProperty('--astral-y','0px');
+      cssVar('--astral-x','0px');
+      cssVar('--astral-y','0px');
       staticFrame();
     } else start();
   }
   resize();
   onMotion();
-  window.addEventListener('resize',resize,{passive:true});
-  window.addEventListener('orientationchange',resize,{passive:true});
+  const adapt = () => { resize(); if (isReduced()) staticFrame(); };
+  window.addEventListener('resize',adapt,{passive:true});
+  window.addEventListener('orientationchange',adapt,{passive:true});
   document.addEventListener('visibilitychange',()=>{
     if (document.hidden) stop();
     else if (isReduced()) staticFrame();
@@ -275,5 +283,6 @@
     observer.observe(captions,{childList:true});
     window.addEventListener('pagehide',()=>observer.disconnect(),{once:true});
   }
-  window.addEventListener('pagehide',stop,{once:true});
+  window.addEventListener('pagehide',stop);
+  window.addEventListener('pageshow',()=>{ if (isReduced()) staticFrame(); else start(); });
 })();
