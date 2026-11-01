@@ -298,6 +298,10 @@
   }
   async function start() {
     if (connection || starting) return;
+    if (isHome && $('interaction-mode')?.value === 'text') {
+      label('文字入力モードです。「やり取り」を音声に切り替えてから開始してください。');
+      return;
+    }
     starting = true;
     const token = ++generation;
     startButton.disabled = true;
