@@ -150,7 +150,9 @@
   }
   function startArchive() {
     // Never save API credentials or raw microphone recordings.
-    archiveId = window.crypto?.randomUUID?.().replaceAll('-', '') || null;
+    const temporary = isHome && $('temporary-chat')?.checked;
+    archiveId = temporary ? null : (window.crypto?.randomUUID?.().replaceAll('-', '') || null);
+    if (isHome && $('temporary-chat')) $('temporary-chat').disabled = true;
     archiveStarted = new Date().toISOString();
     archiveSent = false;
     archiveTurns = [];
@@ -159,7 +161,7 @@
     captions.replaceChildren();
     lastSpeaker = null;
     lastTextAt = 0;
-    if (isHome) archiveNotice('通話中の字幕を記録しています。終了すると自動保存されます。');
+    if (isHome) archiveNotice(temporary ? '一時チャットのため、このLive通話は保存しません。' : '通話中の字幕を記録しています。終了すると自動保存されます。');
   }
   function archivePayload() {
     if (!archiveId || !archiveStarted || !archiveTurns.length) return null;
@@ -278,6 +280,7 @@
   }
   function cleanup(message) {
     publishArchive(false);
+    if (isHome && $('temporary-chat')) $('temporary-chat').disabled = false;
     archiveStarted = null;
     archiveId = null;
     generation++;
