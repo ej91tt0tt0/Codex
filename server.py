@@ -19,6 +19,8 @@ import realtime_proxy
 import live_proxy
 import live_archive
 import long_memory
+import cost_guard
+import data_guard
 import mobile_access
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -36,7 +38,7 @@ CONVERSATION_LOCK = threading.RLock()
 STATE_SNAPSHOT_LOCK = threading.Lock()
 RESEARCH_LOCK = threading.Lock()
 API_STATUS = {}
-APP_VERSION = '1.8.2'
+APP_VERSION = '1.9.0'
 WEATHER_URL = 'https://www.jma.go.jp/bosai/forecast/data/forecast/230000.json'
 REGIONAL_TOPICS = '碧南市 天気,名鉄三河線 運行,知多半島道路 交通,知多高速道路 交通,国道23号 愛知 渋滞,愛知県 交通情報'
 
@@ -66,6 +68,7 @@ def init():
         live_archive.init_schema(c)
         companion.init_schema(c)
         long_memory.init_schema(c)
+        cost_guard.init_schema(c)
         autonomy.init_schema(c)
         for k, v in [('topics', '天気,交通情報,政治,ニュース,スポーツ,ゲーム,エンタメ'), ('automatic', 'true'), ('last_collected', ''), ('remember', 'true'), ('region', '愛知県碧南市浜田町'), ('regional_topics', REGIONAL_TOPICS), ('proactive_enabled', 'true'), ('proactive_interval', '600'), ('proactive_topics', 'false'), ('natural_voice', 'true'), ('high_quality_input', 'true'), ('hands_free', 'true'), ('web_search', 'true'), ('ai_collect', 'true'), ('last_research_attempt', ''), *DEFAULTS.items()]:
             c.execute('INSERT OR IGNORE INTO settings VALUES (?,?)', (k, v))
@@ -77,6 +80,10 @@ def init():
             c.execute("UPDATE settings SET value='600' WHERE key='proactive_interval' AND CAST(value AS INTEGER)<600")
             c.execute("UPDATE settings SET value='false' WHERE key='proactive_topics'")
             c.execute("INSERT INTO settings VALUES ('conversation_flow_version','1')")
+        for key,value in (('backup_enabled','true'),('backup_interval_hours','24'),('backup_keep','10'),
+                          ('backup_last_attempt',''),('backup_last_success',''),('backup_error','')):
+            c.execute('INSERT OR IGNORE INTO settings(key,value) VALUES (?,?)',(key,value))
+    cost_guard.configure(DB)
 
 def settings():
     with connect() as c:
@@ -105,6 +112,8 @@ def state():
     result['desktop_actions_available'] = desktop_actions_available()
     result['ai_connected'] = bool(os.environ.get('ASSISTANT_API_KEY') or os.environ.get('OPENAI_API_KEY'))
     result['api_status'] = dict(API_STATUS)
+    result['usage'] = cost_guard.status(connect)
+    result['backups'] = data_guard.list_backups(DATA)[:10]
     result['version'] = APP_VERSION
     result['snapshot_revision'] = revision
     return result
@@ -260,6 +269,7 @@ def scheduler():
                     collect_research()
                 except Exception as exc:
                     print('AI collection failed:', type(exc).__name__, flush=True)
+            data_guard.sweep(connect, DATA)
         except Exception as exc:
             print('News collection failed:', type(exc).__name__, flush=True)
         time.sleep(60)
@@ -612,6 +622,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply({'app':'ASTER','version':APP_VERSION,'data_id':data_identifier()})
         if self.path == '/api/state':
             return self.reply(state())
+        if self.path == '/api/usage':
+            return self.reply({'usage':cost_guard.status(connect)})
+        if self.path == '/api/backups':
+            return self.reply({'backups':data_guard.list_backups(DATA),
+                               'enabled':settings().get('backup_enabled','true')})
         if self.path.startswith('/api/memories?'):
             params = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             query = params.get('q',[''])[0][:150]
@@ -761,15 +776,19 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('JSON形式が不正です。')
                 if not isinstance(request.get('temporary',False),bool):
                     raise ValueError('Invalid privacy mode')
+                cost_guard.check_budget(cost_guard.minimum_live_cost(connect))
                 live_context = '' if request.get('temporary') else long_memory.session_context(connect)
                 session = live_proxy.create_live_session(
                     request.get('sdp'), request.get('voice', 'marin'), memory_context=live_context
                 )
+                cost_guard.start_live(session['session']['id'])
                 return self.reply(session, 201)
             except (ValueError, TypeError, UnicodeError):
                 return self.reply({'error': '接続データまたは音声設定を確認してください。'}, 400)
             except live_proxy.LiveCallError as error:
                 return self.reply({'error': str(error)}, 502)
+            except cost_guard.BudgetExceeded as error:
+                return self.reply({'error': str(error)}, 429)
             except Exception:
                 return self.reply({'error': '音声接続を開始できませんでした。ネットワークを確認してください。'}, 502)
         if self.path == '/api/realtime/session':
@@ -804,7 +823,35 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(size))
             if not isinstance(body, dict):
                 raise ValueError('入力が不正です。')
-            if self.path == '/api/chat':
+            if self.path == '/api/usage/settings':
+                cost_guard.change_settings(connect,body)
+                return self.reply({'usage':cost_guard.status(connect)})
+            elif self.path == '/api/usage/live':
+                result=cost_guard.update_live(body.get('session_id'),body.get('seconds'),
+                                               finished=body.get('finished') is True)
+                return self.reply({'usage':result,'over_limit':result.get('limit_reached',False)})
+            elif self.path == '/api/backups/create':
+                if body:
+                    raise ValueError('Unexpected backup parameters')
+                created=data_guard.create_backup(connect,DATA,
+                                                keep=settings().get('backup_keep','10'))
+                return self.reply({'created':created,'backups':data_guard.list_backups(DATA)[:10]})
+            elif self.path == '/api/backups/settings':
+                allowed={'backup_enabled','backup_interval_hours','backup_keep'}
+                if not body or any(k not in allowed for k in body):
+                    raise ValueError('Unknown backup setting')
+                for key,value in body.items():
+                    if key=='backup_enabled':
+                        if value not in ('true','false'): raise ValueError('Invalid enable flag')
+                    else:
+                        integer=int(value)
+                        if not (1<=integer<=168 if key=='backup_interval_hours' else 2<=integer<=40):
+                            raise ValueError('Invalid backup interval')
+                with connect() as db:
+                    for key,value in body.items():
+                        db.execute('INSERT OR REPLACE INTO settings VALUES (?,?)',(key,str(value)))
+                return self.reply(state())
+            elif self.path == '/api/chat':
                 content = str(body.get('content', '')).strip()
                 if not content or len(content) > 6000:
                     raise ValueError('発言は1〜6000文字で入力してください。')
@@ -921,6 +968,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(state())
         except ResearchError as error:
             self.reply({'error': str(error)}, 502)
+        except cost_guard.BudgetExceeded as error:
+            self.reply({'error': str(error)}, 429)
         except InitiativeLimit as error:
             self.reply({'error': str(error)}, 429)
         except (ValueError, KeyError, TypeError):
