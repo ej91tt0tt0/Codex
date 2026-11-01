@@ -41,7 +41,7 @@ class DesktopOriginTests(unittest.TestCase):
         html = (root / 'static' / 'live.html').read_text(encoding='utf-8')
         prompt = (root / 'live_proxy.py').read_text(encoding='utf-8')
         self.assertIn("localStorage.getItem(AUTO_START_KEY) === 'true'", script)
-        self.assertIn("if (autoStartEnabled) start();", script)
+        self.assertIn("if (autoStartEnabled) {", script)
         self.assertIn('id="live-auto-start"', html)
         self.assertIn('音声接続が成立しても', prompt)
 

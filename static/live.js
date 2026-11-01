@@ -329,7 +329,8 @@
         if (token !== generation) return;
         output.srcObject = new MediaStream([event.track]);
         output.play().catch(() => {
-          label('音声再生がブロックされました。下の再生コントロールを押してください。');
+          if (isHome && $('home-advanced')) $('home-advanced').open = true;
+          label('音声の自動再生が制限されました。詳細設定内の再生ボタンを押してください。');
         });
       };
       connection.onconnectionstatechange = () => {
@@ -449,8 +450,13 @@
     });
     updateHomeVisual('READY');
   }
-  // Opt-in only: never create billable sessions automatically on first visit.
-  if (autoStartEnabled) start();
+  // Wait for the opening sequence only on the home screen. On /live, start normally.
+  // Opt-in only: never create a billable session on first visit.
+  if (autoStartEnabled) {
+    if (isHome && $('aster-intro')) {
+      window.addEventListener('aster:boot-complete', () => { void start(); }, { once: true });
+    } else void start();
+  }
   stopButton.addEventListener('click', stop);
   muteButton.addEventListener('click', toggleMute);
   window.addEventListener('pagehide', () => {

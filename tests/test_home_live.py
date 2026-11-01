@@ -82,7 +82,7 @@ class HomeLiveTests(unittest.TestCase):
 
     def test_auto_connect_is_opt_in_and_can_be_disabled(self):
         self.assertIn("localStorage.getItem(AUTO_START_KEY) === 'true'", self.js)
-        self.assertIn("if (autoStartEnabled) start();", self.js)
+        self.assertIn("if (autoStartEnabled) {", self.js)
         self.assertIn("autoStart.addEventListener('change'", self.js)
         self.assertIn("session.close", self.js)
         self.assertIn("window.AsterLiveHome.toggle()", self.js)
