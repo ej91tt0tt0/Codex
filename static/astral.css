@@ -623,13 +623,13 @@ body.cosmos-page .live-panel h2 { letter-spacing: .12em; }
   body.cosmos-page .card,body.cosmos-page .archive-list-panel,body.cosmos-page .archive-detail-panel { background: Canvas; border-color: CanvasText; }
 }
 
-/* ASTER 1.8.1 / voice-first cockpit, vertical transcript wing and dedicated workspaces.
-   Desktop: Live orb / live transcript side by side. Mobile: uninterrupted single
-   column with bounded scrollable transcript above viewport-fixed call buttons. */
+/* ASTER 1.8.2 / viewport-centred reactor + detached edge-docked transcript.
+   Mobile/tablet stack the log; large desktop docks it to the viewport's
+   true right edge, outside the 1220px content width. */
 #chat .home-cockpit {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(295px, 350px);
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: clamp(18px, 2.6vw, 34px);
   width: 100%;
   min-width: 0;
@@ -639,7 +639,7 @@ body.cosmos-page.home-live-mode #chat .home-cockpit > .voice-card {
   width: 100%;
   min-width: 0;
   margin: 0;
-  min-height: clamp(545px, calc(100dvh - 173px), 830px);
+  min-height: clamp(560px, calc(100dvh - 173px), 920px);
   padding-bottom: 24px;
 }
 #chat .home-conversation-sidebar {
@@ -648,7 +648,7 @@ body.cosmos-page.home-live-mode #chat .home-cockpit > .voice-card {
   flex-direction: column;
   gap: 10px;
   min-width: 0;
-  height: clamp(535px, calc(100dvh - 168px), 850px);
+  height: clamp(310px, 47dvh, 530px);
   padding: 15px 14px 13px;
   background: linear-gradient(135deg, rgba(11,35,59,.82), rgba(4,17,33,.92) 60%, rgba(6,26,48,.84));
   border: 1px solid rgba(116,200,244,.38);
@@ -784,8 +784,81 @@ body.cosmos-page #chat .home-conversation-sidebar .home-live-captions {
   padding: 7px 0 30px;
 }
 #text-workspace .text-workspace-actions button { min-height: 44px; }
+/* Medium desktops and tablets keep the orb centred and the log below it:
+   a right-docked panel would cover the orb at these viewport widths. */
+@media (min-width: 900px) {
+  body.cosmos-page.home-live-mode #chat .voice-orb {
+    width: clamp(380px, 39vw, 510px);
+    height: clamp(380px, 39vw, 510px);
+  }
+  body.cosmos-page.home-live-mode #chat .voice-visual { margin-inline: auto; }
+}
+@media (min-width: 1260px) {
+  /* The 1220px max-width from style.css must not constrain the cockpit. */
+  body.cosmos-page.home-live-mode > main {
+    max-width: none;
+    width: 100%;
+    padding-right: clamp(22px, 2.8vw, 58px);
+    padding-left: clamp(22px, 2.8vw, 58px);
+  }
+  /* Other tools, settings and history pages retain comfortable line lengths. */
+  body.cosmos-page.home-live-mode > main > section.panel:not(#chat) {
+    max-width: 1160px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+  #chat .home-cockpit {
+    display: block;
+    position: static;
+    width: 100%;
+  }
+  body.cosmos-page.home-live-mode #chat .home-cockpit > .voice-card {
+    width: 100%;
+    min-height: clamp(680px, calc(100dvh - 175px), 1000px);
+    margin: 0;
+  }
+  body.cosmos-page.home-live-mode #chat .voice-orb {
+    width: clamp(460px, 31vw, 580px);
+    height: clamp(460px, 31vw, 580px);
+    min-width: 0;
+    min-height: 0;
+  }
+  body.cosmos-page.home-live-mode #chat .voice-visual::before {
+    width: clamp(540px, 39vw, 680px);
+    height: clamp(540px, 39vw, 680px);
+    max-height: none;
+  }
+  body.cosmos-page.home-live-mode #chat .voice-orb .live-orb-action {
+    width: clamp(124px, 9vw, 142px);
+    height: clamp(124px, 9vw, 142px);
+    font-size: 15px;
+  }
+  /* Fixed to the viewport, not the main content max-width.
+     Main/panel transition uses opacity only, so it cannot capture fixed. */
+  #chat .home-conversation-sidebar {
+    position: fixed;
+    top: 116px;
+    right: 0;
+    bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    left: auto;
+    z-index: 7;
+    width: clamp(320px, 23vw, 442px);
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 18px 16px 16px;
+    border-right: 0;
+    border-radius: 0;
+  }
+}
+@media (min-width: 768px) and (max-width: 899px) {
+  body.cosmos-page.home-live-mode #chat .voice-orb {
+    width: clamp(320px, 42vw, 380px);
+    height: clamp(320px, 42vw, 380px);
+  }
+}
 @media (max-width: 899px) {
-  #chat .home-cockpit { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  #chat .home-cockpit { gap: 16px; }
   body.cosmos-page.home-live-mode #chat .home-cockpit > .voice-card {
     min-height: 0;
     padding-bottom: 7px;
@@ -798,6 +871,9 @@ body.cosmos-page #chat .home-conversation-sidebar .home-live-captions {
 }
 @media (max-width: 767px) {
   #chat .home-cockpit { margin-top: 4px; gap: 10px; }
+  /* iPhone portrait: slightly larger central reactor, without crowding
+     the sticky call controls or tiny landscape viewports. */
+  body.cosmos-page.home-live-mode #chat .voice-visual { margin-inline: auto; }
   #chat .home-conversation-sidebar {
     height: clamp(290px, 44dvh, 425px);
     margin-bottom: 12px;
@@ -813,6 +889,19 @@ body.cosmos-page #chat .home-conversation-sidebar .home-live-captions {
   #voice-settings, #text-workspace { margin-top: 14px; }
   #voice-settings .home-advanced-body,
   #text-workspace .conversation-extras { padding: 12px; }
+}
+@media (max-width: 767px) and (min-height: 700px) and (orientation: portrait) {
+  body.cosmos-page.home-live-mode #chat .voice-orb {
+    width: clamp(235px, 74vw, 310px);
+    height: clamp(235px, 74vw, 310px);
+    min-width: 0;
+    min-height: 0;
+  }
+  body.cosmos-page.home-live-mode #chat .voice-visual::before {
+    width: min(91vw, 355px);
+    height: min(91vw, 355px);
+    max-height: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   #chat .home-sidebar-led { animation: none; }
