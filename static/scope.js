@@ -21,9 +21,9 @@
       c.clearRect(0, 0, w, h);
       c.save();
       c.translate(w / 2, h / 2);
-      const ink = '#4b5040',
-        faint = '#a8ac98';
-      c.fillStyle = `rgba(83,92,73,${0.025 + value * 0.06})`;
+      const ink = '#9cdeff',
+        faint = '#3a7aa8';
+      c.fillStyle = `rgba(43,121,187,${0.025 + value * 0.06})`;
       c.beginPath();
       c.arc(0, 0, radius * 0.86, 0, Math.PI * 2);
       c.fill();
@@ -41,7 +41,7 @@
         const major = i % 8 === 0;
         const inner = radius - 13,
           outer = inner + (major ? 8 : 4) + bin * 28 + value * 15;
-        c.strokeStyle = major ? ink : '#858b76';
+        c.strokeStyle = major ? ink : '#4c9ac6';
         c.lineWidth = major ? 2 : 1;
         c.beginPath();
         c.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
@@ -62,7 +62,7 @@
       c.lineTo(-stem, -stem);
       c.closePath();
       c.fill();
-      c.fillStyle = '#e8e6d9';
+      c.fillStyle = '#071627';
       c.beginPath();
       c.arc(0, 0, 2.5, 0, Math.PI * 2);
       c.fill();
