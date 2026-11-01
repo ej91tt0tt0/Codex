@@ -73,6 +73,26 @@ class ArchiveTests(unittest.TestCase):
             live_archive.summarise(self.connect, ID)
         self.assertEqual(live_archive.detail(self.connect, ID)['status'], 'ready')
 
+    def test_long_calls_are_summarised_from_every_section(self):
+        big = [dict(speaker='あなた', text=('会議の議題を整理する。' * 450)[:5500]) for _ in range(9)]
+        record = dict(self.record, turns=big)
+        live_archive.save(self.connect, record)
+        final = json.dumps({'summary': '長い会議について全体をまとめた。', 'topics': ['会議']}, ensure_ascii=False)
+        with mock.patch('live_archive.respond', side_effect=['前半の要点', '後半の要点', final]) as ai:
+            live_archive.summarise(self.connect, ID)
+        self.assertEqual(ai.call_count, 3)
+        final_input = ai.call_args.args[0][-1]['content']
+        self.assertIn('前半の要点', final_input)
+        self.assertIn('後半の要点', final_input)
+        self.assertEqual(live_archive.detail(self.connect, ID)['status'], 'ready')
+
+    def test_interrupted_pending_summary_can_be_retried(self):
+        live_archive.save(self.connect, self.record)
+        with self.connect() as db:
+            live_archive.init_schema(db)  # Simulates a fresh application launch.
+        self.assertEqual(live_archive.detail(self.connect, ID)['status'], 'failed')
+        self.assertTrue(live_archive.restart_summary(self.connect, ID))
+
     def test_rejects_invalid_ids_dates_and_transcripts(self):
         for bad in [
             dict(self.record, id='not-a-uuid'),
