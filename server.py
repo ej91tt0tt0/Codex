@@ -100,6 +100,7 @@ def state():
                   for table in ('messages', 'memories', 'health', 'news', 'improvement_requests')}
         result['messages'].reverse()
         result['memory_total'] = c.execute('SELECT COUNT(*) FROM memories').fetchone()[0]
+    result['memory_conflicts'] = long_memory.list_conflicts(connect,limit=20)
         result['settings'] = dict(c.execute('SELECT key,value FROM settings').fetchall())
         result['external_actions'] = [dict(row) for row in c.execute('SELECT * FROM external_actions ORDER BY id DESC LIMIT 20')]
         result['research_runs'] = [dict(row) for row in c.execute('SELECT * FROM research_runs ORDER BY id DESC LIMIT 20')]
@@ -630,7 +631,13 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith('/api/memories?'):
             params = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             query = params.get('q',[''])[0][:150]
-            return self.reply({'memories':long_memory.select(connect,query,limit=50,respect_enabled=False),
+            category = params.get('category',[''])[0]
+            try:
+                matches=long_memory.select(connect,query,limit=50,respect_enabled=False,
+                                           category=category)
+            except ValueError:
+                return self.reply({'error':'記憶の分類が不正です。'},400)
+            return self.reply({'memories':matches,
                                'total':long_memory.memory_count(connect)})
         if self.path == '/api/live/archives':
             return self.reply({'archives': live_archive.listing(connect)})
@@ -912,6 +919,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('体調は1〜5で選んでください。')
                 with connect() as c:
                     c.execute('INSERT INTO health(mood,note) VALUES (?,?)', (mood, str(body.get('note', ''))[:2000]))
+            elif self.path == '/api/memory/conflict':
+                with connect() as c:
+                    long_memory.resolve_conflict(c,int(body.get('id')),body.get('resolution'))
             elif self.path == '/api/memory':
                 with connect() as c:
                     if body.get('delete'):
@@ -958,7 +968,7 @@ class Handler(BaseHTTPRequestHandler):
                 # Complete earlier writes before deleting, including work started in another tab.
                 with CONVERSATION_LOCK, COLLECT_LOCK, RESEARCH_LOCK, connect() as c:
                     long_memory.invalidate(c)
-                    for table in ('messages', 'health', 'memories', 'memory_events', 'memory_suppressions', 'news', 'improvement_requests', 'external_actions', 'research_runs', 'diaries', 'goals', 'reminders', 'reminder_deliveries', 'agent_tasks', 'agent_runs', 'live_archives'):
+                    for table in ('messages', 'health', 'memories', 'memory_events', 'memory_suppressions', 'memory_conflicts', 'memory_revisions', 'usage_events', 'usage_live_sessions', 'news', 'improvement_requests', 'external_actions', 'research_runs', 'diaries', 'goals', 'reminders', 'reminder_deliveries', 'agent_tasks', 'agent_runs', 'live_archives'):
                         c.execute(f'DELETE FROM {table}')
                     c.execute('DELETE FROM cache')
                     for key in (*companion.PERSONAL_FIELDS,'custom_preferences'):
