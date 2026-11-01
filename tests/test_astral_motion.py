@@ -45,7 +45,7 @@ class AstralMotionTests(unittest.TestCase):
         self.assertIn("document.body.classList.contains('home-live-active')",js)
         self.assertIn("requestAnimationFrame(paint)",js)
         self.assertIn("cancelAnimationFrame(frame)",js)
-        self.assertIn("document.visibilityState",js.replace("document.hidden","document.visibilityState") if "document.visibilityState" in js else js.replace("document.hidden","document.visibilityState"))
+        self.assertIn('document.hidden',js)
         self.assertIn('event.target.closest?.',js)
         self.assertIn('aria-hidden',js)
         self.assertIn("control.matches('[data-tab]')",js)
