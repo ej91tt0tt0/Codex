@@ -1,0 +1,590 @@
+/* ASTER / ASTRAL SPACE — immersive kinetic interface, original generative graphics.
+   All colours remain anchored to the established navy / ice-blue palette.
+   Decorative elements are pointer-transparent; navigation and microphones stay usable. */
+:root {
+  --astral-ice: #b6efff;
+  --astral-blue: #72d9ff;
+  --astral-line: rgba(122,207,255,.36);
+  --astral-pane: rgba(6,20,37,.66);
+  --astral-velocity: .18;
+  --astral-voice: 0;
+  --astral-x: 0px;
+  --astral-y: 0px;
+}
+html { background: #060b15; }
+body.cosmos-page {
+  min-height: 100dvh;
+  overflow-x: clip;
+  background-color: #060b15;
+  background-image: radial-gradient(ellipse 75vw 55vh at 50% 42%,rgba(30,84,147,.12),transparent 83%);
+}
+.cosmos-background {
+  background: radial-gradient(ellipse 70% 48% at 50% 54%,rgba(46,117,192,.13),transparent 76%),
+              radial-gradient(ellipse 50% 46% at 82% 14%,rgba(42,76,145,.12),transparent 75%),
+              #060b15;
+  isolation: isolate;
+  z-index: 0;
+}
+.cosmos-background .star-layer { opacity: .21; }
+.astral-starfield {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  opacity: .93;
+}
+.astral-nebula {
+  position: absolute;
+  inset: -27%;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 28% 25% at 30% 45%,rgba(32,97,188,.19),transparent 72%),
+              radial-gradient(ellipse 22% 32% at 78% 60%,rgba(71,154,209,.085),transparent 79%),
+              radial-gradient(ellipse 18% 18% at 56% 30%,rgba(151,227,255,.035),transparent 74%);
+  mix-blend-mode: screen;
+  transform: translate3d(var(--astral-x),var(--astral-y),0) rotate(-7deg);
+  animation: astral-nebula-drift 31s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.astral-orbit-grid {
+  position: absolute;
+  left: -35%;
+  right: -35%;
+  top: 41%;
+  height: 93vh;
+  z-index: 1;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(99,185,241,.13) 1px,transparent 1px),
+                    linear-gradient(90deg,rgba(99,185,241,.12) 1px,transparent 1px);
+  background-size: 66px 66px;
+  mask-image: linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.35) 24%,transparent 95%);
+  transform: perspective(520px) rotateX(70deg) translateY(15%);
+  transform-origin: center top;
+  animation: astral-grid-flow 17s linear infinite;
+}
+.astral-atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(to bottom,rgba(3,10,20,.07) 0%,transparent 18%,transparent 69%,rgba(3,10,22,.55) 100%),
+              repeating-linear-gradient(to bottom,transparent 0 7px,rgba(143,220,255,.013) 7px 8px);
+}
+.astral-atmosphere::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(102,174,224,.12);
+  mask-image: linear-gradient(to right,black,transparent 18%,transparent 82%,black);
+}
+.astral-atmosphere::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -34%;
+  height: 13vh;
+  background: linear-gradient(to bottom,transparent,rgba(127,211,255,.045),transparent);
+  animation: astral-scan-screen 19s linear infinite;
+}
+.astral-telemetry {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  font: 9px/1.6 Consolas,'SFMono-Regular',monospace;
+  letter-spacing: .16em;
+  color: rgba(161,214,246,.32);
+}
+.astral-telemetry span { position: absolute; }
+.astral-telemetry span:nth-child(1) { top: 19%; left: 4%; writing-mode: vertical-rl; }
+.astral-telemetry span:nth-child(2) { top: 27%; right: 3%; writing-mode: vertical-rl; }
+.astral-telemetry span:nth-child(3) { bottom: 8%; left: 5%; }
+.astral-telemetry span:nth-child(4) { bottom: 9%; right: 5%; }
+body.cosmos-page > main {
+  position: relative;
+  z-index: 4;
+  animation: astral-main-arrive .95s cubic-bezier(.16,.75,.2,1) both;
+}
+body.cosmos-page > main > header,
+body.cosmos-page > main > .archive-header {
+  background: linear-gradient(95deg,rgba(4,15,28,.92),rgba(9,27,48,.69),rgba(5,15,29,.9));
+  border-bottom: 1px solid rgba(128,215,255,.34);
+  box-shadow: 0 18px 50px rgba(0,0,0,.19),inset 0 -1px rgba(182,239,255,.035);
+}
+body.cosmos-page > main > header::before {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 3%;
+  width: min(21%,210px);
+  height: 1px;
+  background: linear-gradient(90deg,transparent,#a7eaff,transparent);
+  box-shadow: 0 0 16px rgba(92,211,255,.85);
+  animation: astral-nav-pulse 6s ease-in-out infinite;
+}
+body.cosmos-page .brand {
+  text-shadow: 0 0 23px rgba(145,228,255,.3);
+  transition: text-shadow .35s ease,filter .35s ease;
+}
+body.cosmos-page .brand:hover { text-shadow: 0 0 38px rgba(176,242,255,.6); }
+body.cosmos-page header nav button,
+body.cosmos-page header nav a {
+  position: relative;
+  border-radius: 0;
+  transition: background .25s ease,border-color .25s ease,color .25s ease,transform .25s ease;
+}
+body.cosmos-page header nav button:hover:not(:disabled),
+body.cosmos-page header nav a:hover { transform: translateY(-2px); }
+body.cosmos-page header nav button.active {
+  background: linear-gradient(120deg,rgba(33,100,159,.4),rgba(22,55,92,.2));
+  box-shadow: inset 0 -2px #8cddff,0 0 27px rgba(65,161,239,.15);
+}
+body.cosmos-page .eyebrow,
+body.cosmos-page .scope-label,
+body.cosmos-page .archive-meta,
+body.cosmos-page .orb-coordinate {
+  text-shadow: 0 0 15px rgba(99,201,255,.17);
+}
+body.cosmos-page h1 {
+  text-wrap: balance;
+  text-shadow: 0 0 30px rgba(119,215,255,.15);
+}
+body.cosmos-page .panel:not([hidden]) { position: relative; }
+.astral-panel-enter {
+  animation: astral-panel-project .55s cubic-bezier(.12,.72,.2,1) both;
+}
+body.cosmos-page .card,
+body.cosmos-page .archive-list-panel,
+body.cosmos-page .archive-detail-panel,
+body.cosmos-page .live-controls,
+body.cosmos-page .live-disclaimer,
+body.cosmos-page .conversation-controls {
+  position: relative;
+  background: linear-gradient(145deg,rgba(12,36,60,.72),rgba(4,16,31,.74) 55%,rgba(8,26,46,.69));
+  border: 1px solid rgba(112,187,238,.26);
+  border-left: 1px solid rgba(112,187,238,.48);
+  box-shadow: inset 0 1px rgba(161,229,255,.09),
+              0 12px 60px rgba(2,8,16,.24),
+              0 0 25px rgba(49,124,190,.045);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+body.cosmos-page .card::before,
+body.cosmos-page .archive-list-panel::before,
+body.cosmos-page .archive-detail-panel::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  height: 18px;
+  width: 18px;
+  border-top: 1px solid rgba(176,233,255,.78);
+  border-left: 1px solid rgba(176,233,255,.78);
+  box-shadow: -4px -4px 20px rgba(80,194,255,.11);
+  pointer-events: none;
+}
+body.cosmos-page .card::after,
+body.cosmos-page .archive-list-panel::after,
+body.cosmos-page .archive-detail-panel::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  height: 17px;
+  width: 17px;
+  border-bottom: 1px solid rgba(176,233,255,.67);
+  border-right: 1px solid rgba(176,233,255,.67);
+  pointer-events: none;
+}
+body.cosmos-page .card,
+body.cosmos-page .archive-list-panel,
+body.cosmos-page .archive-detail-panel {
+  transition: border-color .4s ease,background-color .4s ease,box-shadow .4s ease;
+}
+body.cosmos-page .card:hover,
+body.cosmos-page .archive-list-panel:hover,
+body.cosmos-page .archive-detail-panel:hover {
+  border-color: rgba(144,222,255,.44);
+  box-shadow: inset 0 1px rgba(165,231,255,.15),
+              0 16px 62px rgba(0,0,0,.28),0 0 36px rgba(63,160,225,.09);
+}
+body.cosmos-page button:not(.text-button):not(.live-orb-action),
+body.cosmos-page .button-link {
+  position: relative;
+  overflow: hidden;
+  transition: transform .22s cubic-bezier(.2,.7,.2,1),border-color .2s ease,
+              box-shadow .25s ease,background-color .22s ease,color .22s ease;
+}
+body.cosmos-page button:not(.text-button):not(.live-orb-action)::before,
+body.cosmos-page .button-link::before {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  inset: -110% auto -110% -50%;
+  width: 28%;
+  background: linear-gradient(90deg,transparent,rgba(227,249,255,.18),transparent);
+  transform: rotate(25deg) translateX(-300%);
+  transition: transform .7s cubic-bezier(.23,.9,.23,1);
+}
+body.cosmos-page button:hover:not(:disabled)::before,
+body.cosmos-page .button-link:hover::before {
+  transform: rotate(25deg) translateX(780%);
+}
+body.cosmos-page .tool-grid button {
+  min-height: 110px;
+  overflow: hidden;
+  border: 1px solid rgba(94,162,219,.37);
+  border-left: 2px solid rgba(158,227,255,.76);
+  background: linear-gradient(118deg,rgba(14,41,67,.86),rgba(5,20,36,.55));
+  clip-path: polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+  transform: perspective(650px) translateZ(0);
+}
+body.cosmos-page .tool-grid button:hover:not(:disabled) {
+  transform: perspective(650px) rotateX(3deg) translateY(-5px);
+  box-shadow: inset 0 0 25px rgba(63,179,255,.17);
+  border-color: rgba(165,238,255,.85);
+}
+body.cosmos-page .activity-grid button {
+  background: rgba(17,45,72,.54);
+  border: 1px solid rgba(104,176,224,.3);
+}
+body.cosmos-page .activity-grid button:hover:not(:disabled) {
+  transform: translateY(-3px);
+}
+body.cosmos-page .bubble,
+body.cosmos-page .archive-turn,
+body.cosmos-page .home-live-captions p {
+  animation: astral-message-arrive .44s cubic-bezier(.2,.78,.2,1) both;
+}
+body.cosmos-page .bubble {
+  border: 1px solid rgba(116,199,255,.27);
+  border-left: 2px solid #86ddff;
+  background: linear-gradient(135deg,rgba(22,70,105,.64),rgba(9,28,50,.79));
+  box-shadow: 0 5px 27px rgba(0,0,0,.18),0 0 16px rgba(45,142,214,.05);
+}
+body.cosmos-page .bubble.user {
+  background: rgba(15,34,54,.75);
+  border-left: 1px solid rgba(116,199,255,.27);
+  border-right: 2px solid #7199c9;
+}
+body.cosmos-page input:not([type=checkbox]),
+body.cosmos-page textarea,
+body.cosmos-page select {
+  background: rgba(7,27,48,.9);
+  box-shadow: inset 0 0 18px rgba(17,75,131,.08);
+}
+body.cosmos-page input:focus,
+body.cosmos-page textarea:focus,
+body.cosmos-page select:focus {
+  border-color: #a3e9ff;
+  box-shadow: 0 0 0 1px rgba(105,214,255,.22),0 0 22px rgba(69,164,241,.16);
+}
+body.cosmos-page details[open] > summary {
+  color: #dff8ff;
+  text-shadow: 0 0 16px rgba(104,219,255,.24);
+}
+body.cosmos-page .home-live-mode .voice-card { border: 0; }
+body.cosmos-page.home-live-mode .voice-card {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  padding-top: 8px;
+  isolation: isolate;
+}
+body.cosmos-page.home-live-mode .voice-card::before { display: none; }
+body.cosmos-page.home-live-mode .voice-visual {
+  position: relative;
+  margin: clamp(10px,3vh,30px) auto 6px;
+  isolation: isolate;
+}
+body.cosmos-page.home-live-mode .voice-visual::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: 49%;
+  width: min(60vw,590px);
+  height: min(60vw,590px);
+  max-height: 95%;
+  border-radius: 50%;
+  transform: translate(-50%,-50%) rotate(12deg);
+  pointer-events: none;
+  border: 1px dashed rgba(124,203,244,.17);
+  box-shadow: 0 0 70px rgba(51,137,207,.09),inset 0 0 60px rgba(68,148,210,.045);
+  animation: astral-aura-rotate 88s linear infinite;
+}
+body.cosmos-page.home-live-mode .voice-visual::after {
+  content: '';
+  position: absolute;
+  inset: 16% 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,transparent 0%,rgba(89,174,238,.1) 31%,rgba(119,203,248,.14) 50%,rgba(89,174,238,.1) 69%,transparent 100%);
+  mask-image: linear-gradient(to bottom,transparent,black 44%,black 56%,transparent);
+}
+body.cosmos-page .voice-orb {
+  --voice-amplitude: var(--astral-voice);
+  z-index: 2;
+  overflow: visible;
+  background:
+    radial-gradient(circle at 34% 28%,rgba(207,246,255,.12) 0,transparent 26%),
+    radial-gradient(circle at 52% 54%,rgba(19,92,160,.22),rgba(5,20,39,.31) 53%,transparent 74%);
+  filter: drop-shadow(0 0 26px rgba(62,143,210,.28));
+  transition: filter .3s ease;
+}
+body.cosmos-page .voice-orb::before {
+  inset: 14%;
+  background: radial-gradient(circle at 37% 29%,rgba(192,244,255,.22),transparent 39%),
+              radial-gradient(circle at 60% 67%,rgba(50,130,211,.16),transparent 67%);
+  border: 1px solid rgba(161,231,255,.4);
+  box-shadow: inset 0 0 34px rgba(66,159,243,.13),0 0 41px rgba(64,154,240,.15);
+  animation: astral-core-breathe 5.6s ease-in-out infinite;
+}
+body.cosmos-page .voice-orb::after {
+  inset: -8%;
+  opacity: .6;
+  border: 1px dashed rgba(138,218,255,.39);
+  animation: astral-ring-turn 52s linear infinite reverse;
+}
+body.cosmos-page .orb-gyro { border-color: rgba(135,211,255,.55); }
+body.cosmos-page .orb-gyro-a { border-left-color: #d4f6ff; box-shadow: inset 0 0 18px rgba(121,216,255,.15),0 0 25px rgba(103,191,255,.16); }
+body.cosmos-page .orb-gyro-b { border-top-color: #b4eeff; }
+body.cosmos-page .orb-gyro-c { border-color: rgba(109,200,252,.5); }
+body.cosmos-page .voice-orb .astral-reactor {
+  position: absolute;
+  inset: 2%;
+  z-index: 3;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(from 0deg,transparent 0 12%,rgba(137,230,255,.83) 13% 15%,transparent 16% 27%,
+               rgba(53,153,228,.65) 28% 29%,transparent 31% 55%,rgba(195,244,255,.86) 56% 58%,transparent 59% 84%,rgba(85,196,255,.65) 85% 86%,transparent 87%);
+  -webkit-mask: radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
+  opacity: .75;
+  animation: astral-reactor-spin 14s linear infinite;
+  filter: drop-shadow(0 0 6px #72d9ff);
+}
+body.cosmos-page .voice-orb .astral-reactor::after { content: ''; }
+body.cosmos-page .voice-orb .astral-arc {
+  position: absolute;
+  inset: 26%;
+  z-index: 3;
+  border-radius: 50%;
+  border: 1px solid rgba(151,230,255,.35);
+  border-bottom-color: transparent;
+  border-right-color: rgba(151,230,255,.8);
+  transform: rotateX(62deg) rotateZ(-22deg);
+  animation: astral-inner-arc 11s linear infinite;
+  pointer-events: none;
+  box-shadow: 0 0 18px rgba(100,203,252,.13);
+}
+body.cosmos-page .voice-orb.listening .astral-reactor {
+  opacity: 1;
+  filter: drop-shadow(0 0 11px #a2ebff);
+  animation-duration: 4.5s;
+}
+body.cosmos-page .voice-orb.listening .astral-arc { animation-duration: 4s; }
+body.cosmos-page .voice-orb.listening {
+  filter: drop-shadow(0 0 var(--astral-glow,32px) rgba(83,195,252,.42));
+}
+body.cosmos-page .voice-orb .live-orb-action {
+  background: radial-gradient(circle at 35% 22%,rgba(67,164,227,.53),rgba(7,30,55,.98) 67%);
+  color: #e5fbff;
+  border: 1px solid rgba(176,239,255,.75);
+  box-shadow: inset 0 0 19px rgba(87,212,255,.22),0 0 21px rgba(81,198,252,.23);
+  border-radius: 50%;
+  text-shadow: 0 0 13px rgba(124,233,255,.8);
+  letter-spacing: .18em;
+  transition: transform .27s ease,box-shadow .3s ease;
+}
+body.cosmos-page .voice-orb .live-orb-action:hover:not(:disabled) {
+  transform: translate(-50%,-50%) scale(1.055);
+  box-shadow: inset 0 0 30px rgba(114,225,255,.35),0 0 37px rgba(92,194,255,.44);
+}
+body.cosmos-page .home-log-heading {
+  border-top: 1px solid rgba(125,204,242,.24);
+  padding-top: 14px;
+  margin-top: 16px;
+}
+body.cosmos-page .home-live-captions,
+body.cosmos-page .archive-transcript,
+body.cosmos-page .live-captions {
+  border: 1px solid rgba(116,200,248,.27);
+  border-left: 2px solid rgba(147,228,255,.72);
+  background: linear-gradient(135deg,rgba(5,21,37,.84),rgba(8,32,52,.64));
+  box-shadow: inset 0 0 38px rgba(29,84,131,.12),0 12px 45px rgba(0,0,0,.16);
+  backdrop-filter: blur(12px);
+}
+body.cosmos-page .home-live-captions .live-caption-assistant {
+  background: linear-gradient(90deg,rgba(48,120,168,.18),transparent);
+}
+body.cosmos-page .archive-list a {
+  background: rgba(8,29,51,.56);
+  border-left-color: rgba(110,204,245,.67);
+  transition: background .26s ease,transform .3s ease,border-color .2s ease,box-shadow .2s ease;
+}
+body.cosmos-page .archive-list a:hover,
+body.cosmos-page .archive-list a.active {
+  transform: translateX(5px);
+  background: rgba(19,65,105,.66);
+  box-shadow: 0 0 22px rgba(54,146,216,.12);
+}
+body.cosmos-page .archive-summary {
+  background: linear-gradient(120deg,rgba(18,55,82,.55),rgba(4,22,39,.64));
+  box-shadow: 0 0 23px rgba(50,141,214,.09);
+}
+.astral-stage-banner {
+  position: relative;
+  margin: clamp(12px,3vh,28px) auto 24px;
+  height: clamp(135px,23vw,244px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  pointer-events: none;
+}
+.astral-stage-banner::before {
+  content: '';
+  position: absolute;
+  width: min(40vw,240px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(157,229,255,.6);
+  border-radius: 50%;
+  box-shadow: inset 0 0 45px rgba(70,167,232,.1),0 0 45px rgba(48,133,214,.15);
+  transform: rotateX(62deg);
+  animation: astral-inner-arc 8s linear infinite;
+}
+.astral-stage-banner::after {
+  content: '';
+  width: min(34vw,200px);
+  aspect-ratio: 1;
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed rgba(157,229,255,.41);
+  box-shadow: 0 0 26px rgba(112,201,255,.13);
+  transform: rotateY(73deg);
+  animation: astral-stage-gyro 15s linear infinite reverse;
+}
+.astral-stage-mark {
+  position: relative;
+  z-index: 2;
+  color: #baf2ff;
+  font: 300 clamp(28px,6.5vw,80px)/1 'Segoe UI',sans-serif;
+  letter-spacing: .22em;
+  text-shadow: 0 0 30px rgba(125,225,255,.48);
+  animation: astral-core-breathe 4.3s ease-in-out infinite;
+}
+body.cosmos-page .live-main .live-panel,
+body.cosmos-page .archive-heading { position: relative; }
+body.cosmos-page .live-main .live-panel::before,
+body.cosmos-page .archive-heading::before {
+  content: '';
+  position: absolute;
+  left: 0; top: -7px;
+  width: min(20%,165px); height: 1px;
+  background: linear-gradient(90deg,rgba(174,235,255,.88),transparent);
+  box-shadow: 0 0 18px rgba(108,204,255,.45);
+}
+body.cosmos-page .live-panel .live-controls {
+  border: 1px solid rgba(101,185,236,.36);
+  background: rgba(7,23,40,.76);
+  box-shadow: inset 0 0 30px rgba(38,117,179,.08);
+}
+body.cosmos-page .live-panel .live-status { color: #b7efff; }
+body.cosmos-page .live-panel h2 { letter-spacing: .12em; }
+.astral-interaction-flash {
+  position: fixed;
+  z-index: 15;
+  width: 90px;
+  height: 90px;
+  left: var(--flash-x,50vw);
+  top: var(--flash-y,50vh);
+  border-radius: 50%;
+  border: 1px solid rgba(158,230,255,.7);
+  box-shadow: 0 0 24px rgba(102,207,255,.36),inset 0 0 28px rgba(62,160,255,.15);
+  pointer-events: none;
+  transform: translate(-50%,-50%) scale(.25);
+  animation: astral-click-wave .66s ease-out forwards;
+}
+@keyframes astral-nebula-drift {
+  from { transform: translate3d(calc(var(--astral-x) - 18px),calc(var(--astral-y) + 8px),0) rotate(-8deg) scale(1); }
+  to { transform: translate3d(calc(var(--astral-x) + 20px),calc(var(--astral-y) - 13px),0) rotate(-3deg) scale(1.12); }
+}
+@keyframes astral-grid-flow {
+  from { background-position: 0 0,0 0; }
+  to { background-position: 0 66px,0 66px; }
+}
+@keyframes astral-scan-screen { from { transform: translateY(-10vh); } to { transform: translateY(155vh); } }
+@keyframes astral-nav-pulse { 0%,100% { opacity: .28; } 50% { opacity: 1; } }
+/* Opacity-only on page/panel ancestors: transform/filter here would break
+   position:fixed mobile mute/end controls by creating a containing block. */
+@keyframes astral-main-arrive {
+  from { opacity: .12; }
+  42% { opacity: .65; }
+  to { opacity: 1; }
+}
+@keyframes astral-panel-project {
+  from { opacity: .09; }
+  34% { opacity: .35; }
+  65% { opacity: .86; }
+  to { opacity: 1; }
+}
+@keyframes astral-message-arrive {
+  from { opacity: 0; transform: translateY(12px) scale(.986); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes astral-aura-rotate { to { transform: translate(-50%,-50%) rotate(372deg); } }
+@keyframes astral-reactor-spin { to { transform: rotate(360deg); } }
+@keyframes astral-ring-turn { to { transform: rotate(360deg); } }
+@keyframes astral-stage-gyro {
+  from { transform: rotateY(73deg) rotateZ(0deg); }
+  to { transform: rotateY(73deg) rotateZ(360deg); }
+}
+@keyframes astral-inner-arc { from { transform: rotateX(62deg) rotateZ(0deg); } to { transform: rotateX(62deg) rotateZ(360deg); } }
+@keyframes astral-core-breathe {
+  0%,100% { opacity: .63; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.28); }
+}
+@keyframes astral-click-wave {
+  0% { opacity: .85; transform: translate(-50%,-50%) scale(.25); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(2.1); }
+}
+@media (min-width: 900px) {
+  body.cosmos-page.home-live-mode .voice-orb { width: clamp(280px,33vw,380px); height: clamp(280px,33vw,380px); }
+  body.cosmos-page.home-live-mode .voice-visual { margin-top: 4px; }
+  body.cosmos-page .tool-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 767px) {
+  .astral-telemetry { opacity: .48; }
+  .astral-orbit-grid { opacity: .7; }
+  body.cosmos-page > main { animation-duration: .65s; }
+  body.cosmos-page header { background: rgba(5,15,28,.94) !important; }
+  body.cosmos-page .card { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  body.cosmos-page.home-live-mode .voice-card { padding-top: 0; }
+  body.cosmos-page.home-live-mode .voice-visual { margin: 3px auto 3px; }
+  body.cosmos-page.home-live-mode .voice-visual::before { width: min(85vw,350px); height: min(85vw,350px); }
+  body.cosmos-page.home-live-mode .voice-visual::after { inset: 11% 0; }
+  body.cosmos-page.home-live-mode .home-live-captions { min-height: 122px; }
+  .astral-stage-banner { height: 145px; margin-bottom: 12px; }
+  .astral-stage-banner::before { width: 180px; }
+  .astral-stage-banner::after { width: 143px; }
+  .astral-stage-mark { font-size: 34px; }
+  body.cosmos-page .archive-list a:hover { transform: translateX(2px); }
+  body.cosmos-page .tool-grid button { min-height: 91px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .astral-nebula,.astral-orbit-grid,.astral-atmosphere::after,
+  .astral-stage-banner::before,.astral-stage-banner::after,.astral-stage-mark,
+  body.cosmos-page .voice-orb::before,body.cosmos-page .voice-orb::after,
+  body.cosmos-page .voice-orb .astral-reactor,body.cosmos-page .voice-orb .astral-arc,
+  body.cosmos-page.home-live-mode .voice-visual::before,
+  body.cosmos-page .bubble,body.cosmos-page .archive-turn,body.cosmos-page .home-live-captions p,
+  body.cosmos-page > main,.astral-panel-enter,.astral-interaction-flash,
+  body.cosmos-page header::before {
+    animation: none !important; transition-duration: 0s !important;
+  }
+  body.cosmos-page .tool-grid button:hover:not(:disabled) { transform: none; }
+}
+@media (forced-colors: active) {
+  .astral-atmosphere,.astral-orbit-grid,.astral-nebula,.astral-interaction-flash,.astral-telemetry { display: none !important; }
+  body.cosmos-page .card,body.cosmos-page .archive-list-panel,body.cosmos-page .archive-detail-panel { background: Canvas; border-color: CanvasText; }
+}
