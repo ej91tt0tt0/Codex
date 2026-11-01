@@ -436,6 +436,20 @@ for (const b of document.querySelectorAll('[data-tab]'))
     voice.armIdle();
     window.scrollTo(0, 0);
   };
+// The text workspace owns the message form; return to the Live cockpit
+// without losing the user's saved voice/text mode or their draft.
+$('text-workspace-to-voice').onclick = async (event) => {
+  // Switch the saved preference without auto-starting the legacy microphone:
+  // the main cockpit's TALK button remains the explicit Live start control.
+  if ($('interaction-mode').value === 'text') {
+    const ok = await companion.perform(
+      () => companion.preferences({ interaction_mode: 'voice' }),
+      event.currentTarget,
+    );
+    if (!ok) return;
+  }
+  document.querySelector('header [data-tab=chat]').click();
+};
 $('chat-form').onsubmit = async (e) => {
   e.preventDefault();
   const draft = $('message').value,

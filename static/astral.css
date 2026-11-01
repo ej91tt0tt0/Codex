@@ -622,3 +622,198 @@ body.cosmos-page .live-panel h2 { letter-spacing: .12em; }
   .astral-atmosphere,.astral-orbit-grid,.astral-nebula,.astral-interaction-flash,.astral-telemetry { display: none !important; }
   body.cosmos-page .card,body.cosmos-page .archive-list-panel,body.cosmos-page .archive-detail-panel { background: Canvas; border-color: CanvasText; }
 }
+
+/* ASTER 1.8.1 / voice-first cockpit, vertical transcript wing and dedicated workspaces.
+   Desktop: Live orb / live transcript side by side. Mobile: uninterrupted single
+   column with bounded scrollable transcript above viewport-fixed call buttons. */
+#chat .home-cockpit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(295px, 350px);
+  align-items: start;
+  gap: clamp(18px, 2.6vw, 34px);
+  width: 100%;
+  min-width: 0;
+  margin: 12px 0 20px;
+}
+body.cosmos-page.home-live-mode #chat .home-cockpit > .voice-card {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  min-height: clamp(545px, calc(100dvh - 173px), 830px);
+  padding-bottom: 24px;
+}
+#chat .home-conversation-sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  height: clamp(535px, calc(100dvh - 168px), 850px);
+  padding: 15px 14px 13px;
+  background: linear-gradient(135deg, rgba(11,35,59,.82), rgba(4,17,33,.92) 60%, rgba(6,26,48,.84));
+  border: 1px solid rgba(116,200,244,.38);
+  border-left: 2px solid rgba(167,232,255,.76);
+  box-shadow: inset 0 0 36px rgba(38,121,191,.08), 0 12px 52px rgba(0,0,0,.22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  isolation: isolate;
+}
+#chat .home-conversation-sidebar::before,
+#chat .home-conversation-sidebar::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  width: 27px;
+  height: 20px;
+  right: -1px;
+  border-right: 1px solid #acefff;
+}
+#chat .home-conversation-sidebar::before {
+  top: -1px;
+  border-top: 1px solid #acefff;
+}
+#chat .home-conversation-sidebar::after {
+  bottom: -1px;
+  border-bottom: 1px solid #acefff;
+}
+#chat .home-sidebar-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font: 10px/1.7 Consolas, 'SFMono-Regular', monospace;
+  color: #84b4d8;
+  letter-spacing: .17em;
+}
+#chat .home-sidebar-led {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #88dbff;
+  box-shadow: 0 0 12px rgba(113,223,255,.75);
+  animation: astral-nav-pulse 3s ease-in-out infinite;
+}
+#chat .home-conversation-sidebar .home-log-heading {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 11px 0 13px;
+  border-top: 1px solid rgba(116,192,239,.29);
+  border-bottom: 1px solid rgba(116,192,239,.2);
+  font-size: 10px;
+  line-height: 1.6;
+}
+#chat .home-conversation-sidebar .home-log-heading a {
+  flex: none;
+  font-size: 11px;
+}
+body.cosmos-page #chat .home-conversation-sidebar .home-live-captions {
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  padding: 13px 11px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-color: #5c9eca #071a30;
+  text-align: left;
+}
+#chat .home-conversation-sidebar .home-live-captions p {
+  margin: 10px 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+#chat .home-conversation-sidebar .archive-save-status {
+  flex: none;
+  margin: 0;
+  padding: 9px 0 0;
+  border-top: 1px solid rgba(116,192,239,.25);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+#voice-settings,
+#text-workspace {
+  max-width: 900px;
+  margin: 25px auto 0;
+  padding-bottom: 100px;
+}
+#voice-settings > .home-advanced,
+#text-workspace > .home-extra-panel {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 20px 0;
+  background: linear-gradient(140deg,rgba(10,37,60,.83),rgba(4,19,36,.88));
+  border: 1px solid rgba(119,197,237,.38);
+  border-left: 2px solid rgba(166,231,255,.73);
+  box-shadow: inset 0 0 26px rgba(37,136,206,.07), 0 12px 40px rgba(0,0,0,.2);
+}
+#voice-settings > .home-advanced > summary,
+#text-workspace > .home-extra-panel > summary {
+  display: block;
+  padding: 15px 17px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(115,195,241,.23);
+  cursor: pointer;
+}
+#voice-settings .home-advanced-body,
+#text-workspace .conversation-extras {
+  padding: clamp(15px,2.2vw,28px);
+}
+#voice-settings .home-live-settings { max-width: none; }
+#text-workspace .conversation-extras details { max-width: none; }
+#text-workspace #text-input > summary,
+#text-workspace #conversation-history > summary { min-height: 44px; }
+#text-workspace #chat-form { padding: 14px 0; }
+#text-workspace .text-workspace-actions {
+  display: flex;
+  justify-content: flex-start;
+  padding: 7px 0 30px;
+}
+#text-workspace .text-workspace-actions button { min-height: 44px; }
+@media (max-width: 899px) {
+  #chat .home-cockpit { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  body.cosmos-page.home-live-mode #chat .home-cockpit > .voice-card {
+    min-height: 0;
+    padding-bottom: 7px;
+  }
+  #chat .home-conversation-sidebar {
+    height: clamp(315px, 45dvh, 490px);
+    padding: 13px 12px;
+  }
+  #voice-settings, #text-workspace { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 767px) {
+  #chat .home-cockpit { margin-top: 4px; gap: 10px; }
+  #chat .home-conversation-sidebar {
+    height: clamp(290px, 44dvh, 425px);
+    margin-bottom: 12px;
+    padding: 12px 10px;
+  }
+  #chat .home-conversation-sidebar .home-log-heading { margin-top: 0; padding: 9px 0; }
+  body.cosmos-page #chat .home-conversation-sidebar .home-live-captions {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 10px;
+  }
+  #voice-settings, #text-workspace { margin-top: 14px; }
+  #voice-settings .home-advanced-body,
+  #text-workspace .conversation-extras { padding: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #chat .home-sidebar-led { animation: none; }
+}
