@@ -4,6 +4,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
+import cost_guard
 import urllib.error
 import public_sources
 from datetime import datetime, timezone
@@ -93,6 +94,7 @@ def respond(messages, search=True, require_search=False, max_tokens=1000):
                        include=['web_search_call.action.sources'])
     request = urllib.request.Request('https://api.openai.com/v1/responses', data=json.dumps(payload).encode(),
                                     headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
+    cost_guard.check_budget()
     try:
         with urllib.request.urlopen(request, timeout=90) as response:
             data = json.load(response)
@@ -110,6 +112,7 @@ def respond(messages, search=True, require_search=False, max_tokens=1000):
         raise ResearchError('AIの調査に接続できませんでした。APIの利用枠・モデルのWeb検索対応・接続を確認してください。') from None
     except Exception:
         raise ResearchError('AIの調査に接続できませんでした。APIの利用枠・モデルのWeb検索対応・接続を確認してください。') from None
+    cost_guard.add_text_usage('responses',data.get('usage'))
     return parse_response(data, require_search=require_search)
 
 
@@ -118,7 +121,9 @@ def chat_completion(messages, key, max_tokens, tools=None, required=False):
     if tools:
         payload.update(tools=tools,tool_choice='required' if required else 'auto',parallel_tool_calls=True)
     request=urllib.request.Request('https://api.openai.com/v1/chat/completions',data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+    cost_guard.check_budget()
     with urllib.request.urlopen(request,timeout=60) as response:data=json.load(response)
+    cost_guard.add_text_usage('chat_completion',data.get('usage'))
     return data['choices'][0]['message']
 
 
