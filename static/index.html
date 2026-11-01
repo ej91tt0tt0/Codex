@@ -206,15 +206,15 @@
             <div id="latest-sources"></div>
           </details>
 
-          <p class="hint"><strong>Live音声が標準です。</strong> 円形メーターから直接開始し、割り込みできます。文字起こしされたLive会話は通話終了時に「会話記録」へ自動保存・要約されます。音声ファイル自体は保存せず、予定や長期記憶には反映されません。</p>
-          <p class="hint">Live方式からは、この画面の保存済み記憶・予定の操作はまだできません。従来の会話方式は引き続き使えます。</p>
+          <p class="hint"><strong>Live音声が標準です。</strong> 円形メーターから直接開始し、割り込みできます。文字起こしされたLive会話は通話終了時に「会話記録」へ自動保存・要約されます。音声ファイルは保存しません。自動記憶が有効なら、通話終了後に字幕から重要事項を抽出します。</p>
+          <p class="hint">Liveは通話開始時点の長期記憶を読み取り専用で参照できます。Live中に記憶・予定の追加や削除はできません。</p>
           <details class="source-details">
             <summary>その他の音声方式</summary>
             <p class="hint"><a href="/realtime">従来のリアルタイム音声会話</a>（比較用）</p>
           </details>
           <details class="source-details classic-voice-options">
             <summary>従来方式の音声会話</summary>
-            <p class="hint">保存済み記憶や予定を使う場合はこちら。Live通話を終了してから開始してください。</p>
+            <p class="hint">予定などの専用操作や、通常チャット形式で記憶を利用する場合はこちら。Live通話を終了してから開始してください。</p>
             <div class="classic-voice-buttons">
               <button id="voice-start" type="button" class="secondary">従来方式で開始</button>
               <button id="voice-interrupt" type="button" class="secondary" aria-label="今の話のまとまりを言い終えてから会話を渡す" disabled>会話を渡す</button>
@@ -840,34 +840,40 @@
           <button type="button" data-tab="tools" class="text-button">← メニュー</button
           ><span class="eyebrow">PERSONAL SPACE / 06</span>
         </div>
-        <h1 id="memory-heading">あなたらしさを、少しずつ。</h1>
+        <h1 id="memory-heading">会話をつなぐ、長期記憶。</h1>
         <p class="lead">
-          覚えている内容はいつでも変更できます。モデル自体の再学習ではなく、記憶を使って回答を調整します。
+          通常チャットとLive通話から、大事な好み・進行中の仕事・目標を自動抽出し、次回の会話で参照します。モデルの再学習ではなく、このPCのデータベースに記憶を保存します。
         </p>
-        <label class="check"
-          ><input
-            id="remember"
-            type="checkbox"
-          />長期記憶の保存・参照を有効にする（「覚えて」と頼んだ内容）</label
-        ><label class="check"
-          ><input
-            id="auto-memory"
-            type="checkbox"
-          />「私は〜が好き」などの好みも自動保存する（任意）</label
-        >
-        <p class="hint">
-          保存内容は下で確認・修正・削除できるよ。名前や趣味はメニューの「名前・好み」でも編集できるよ。
-        </p>
+        <div class="card memory-settings-card">
+          <p class="eyebrow">LONG-TERM MEMORY / CONTROL</p>
+          <label class="check"><input id="remember" type="checkbox" />長期記憶の保存・会話への参照を有効にする</label>
+          <label class="check"><input id="auto-memory" type="checkbox" />Liveと通常チャットから重要事項を自動で記憶する</label>
+          <p class="hint">
+            自動抽出は会話後に実行します。医療・住所・電話番号・パスワードなどの機微情報は自動保存しません。
+            一時チャットは保存・読み込みともに対象外です。AIによる抽出には追加のAPI料金が発生します。
+          </p>
+          <p class="hint">
+            記憶は誤認識される場合があります。下の一覧で内容を確認し、誤りは編集・削除してください。
+            記憶をオフにしても既存のデータは消えません。削除は一覧から行えます。
+          </p>
+          <p id="memory-count" class="hint" role="status">保存済みの記憶を確認しています…</p>
+        </div>
         <form id="memory-form" class="card">
-          <label
-            >覚えてほしいこと<input
-              id="memory-content"
-              required
-              maxlength="500"
-              placeholder="好きなこと、回答の好み、生活習慣など" /></label
-          ><button>記憶に追加</button>
+          <label>自分で記憶を追加する
+            <input id="memory-content" required maxlength="500" placeholder="仕事・好み・長く覚えてほしいこと" />
+          </label>
+          <button>記憶に追加</button>
         </form>
-
+        <form id="memory-search-form" class="memory-search-form card" role="search">
+          <label for="memory-search">保存済みの記憶を検索
+            <input id="memory-search" maxlength="150" placeholder="例：ブランド、制作、目標" />
+          </label>
+          <div class="memory-search-actions">
+            <button type="submit">検索</button>
+            <button id="memory-search-reset" type="button" class="secondary">最新の記憶に戻す</button>
+          </div>
+          <p id="memory-search-status" class="hint" role="status">最新100件を表示。古い記憶は検索できます。</p>
+        </form>
         <div id="memory-list"></div>
         <div class="card">
           <h2>データの管理</h2>
@@ -904,7 +910,7 @@
       </div>
       <footer class="app-footer">
         <span class="footer-brand"
-          >ASTER 1.7<span class="footer-divider"> / </span>PERSONAL COMPANION</span
+          >ASTER 1.8<span class="footer-divider"> / </span>PERSONAL COMPANION</span
         ><span id="session-privacy">通常の会話 · このPCに保存</span
         ><time id="local-clock" aria-label="日本時間"></time>
       </footer>

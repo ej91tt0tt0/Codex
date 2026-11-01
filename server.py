@@ -18,6 +18,7 @@ import autonomy
 import realtime_proxy
 import live_proxy
 import live_archive
+import long_memory
 import mobile_access
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -35,7 +36,7 @@ CONVERSATION_LOCK = threading.RLock()
 STATE_SNAPSHOT_LOCK = threading.Lock()
 RESEARCH_LOCK = threading.Lock()
 API_STATUS = {}
-APP_VERSION = '1.7.0'
+APP_VERSION = '1.8.0'
 WEATHER_URL = 'https://www.jma.go.jp/bosai/forecast/data/forecast/230000.json'
 REGIONAL_TOPICS = '碧南市 天気,名鉄三河線 運行,知多半島道路 交通,知多高速道路 交通,国道23号 愛知 渋滞,愛知県 交通情報'
 
@@ -64,6 +65,7 @@ def init():
         ''')
         live_archive.init_schema(c)
         companion.init_schema(c)
+        long_memory.init_schema(c)
         autonomy.init_schema(c)
         for k, v in [('topics', '天気,交通情報,政治,ニュース,スポーツ,ゲーム,エンタメ'), ('automatic', 'true'), ('last_collected', ''), ('remember', 'true'), ('region', '愛知県碧南市浜田町'), ('regional_topics', REGIONAL_TOPICS), ('proactive_enabled', 'true'), ('proactive_interval', '600'), ('proactive_topics', 'false'), ('natural_voice', 'true'), ('high_quality_input', 'true'), ('hands_free', 'true'), ('web_search', 'true'), ('ai_collect', 'true'), ('last_research_attempt', ''), *DEFAULTS.items()]:
             c.execute('INSERT OR IGNORE INTO settings VALUES (?,?)', (k, v))
@@ -90,6 +92,7 @@ def state():
         result = {table: [dict(row) for row in c.execute(f'SELECT * FROM {table} ORDER BY id DESC LIMIT 100')]
                   for table in ('messages', 'memories', 'health', 'news', 'improvement_requests')}
         result['messages'].reverse()
+        result['memory_total'] = c.execute('SELECT COUNT(*) FROM memories').fetchone()[0]
         result['settings'] = dict(c.execute('SELECT key,value FROM settings').fetchall())
         result['external_actions'] = [dict(row) for row in c.execute('SELECT * FROM external_actions ORDER BY id DESC LIMIT 20')]
         result['research_runs'] = [dict(row) for row in c.execute('SELECT * FROM research_runs ORDER BY id DESC LIMIT 20')]
@@ -390,23 +393,25 @@ def _chat(content, image=None):
         config=settings()
         requested_memory=companion.memory_request(content)
         if config['remember']=='true':
-            preference=re.search(r'(?:私は|わたしは)([^。！？\n]{1,100}(?:が好き|が苦手|を希望します|を好みます))',content)
-            memory=requested_memory or (preference.group(0) if preference and config.get('auto_memory')=='true' else None)
-            if memory:
-                with connect() as c:c.execute('INSERT OR IGNORE INTO memories(content) VALUES (?)',(memory,))
-                if requested_memory:answer='覚えたよ。メニューの記憶から、いつでも確認・修正・削除できる。'
+            if requested_memory:
+                with connect() as c:
+                    c.execute('INSERT OR IGNORE INTO memories(content) VALUES (?)',(requested_memory,))
+                answer='覚えたよ。メニューの記憶から、いつでも確認・修正・削除できる。'
         elif requested_memory:
             answer='長期記憶がオフなので、記憶には保存していないよ。保存したいときはメニューで有効にしてね。'
         if answer is None:
             try:
                 snapshot=state()
                 with connect() as c:snapshot['previous_context']=companion.recent_context(c,content)
+                snapshot['related_memories'] = long_memory.select(connect,content,limit=20)
                 answer=generate_reply(snapshot,image=image) if image else generate_reply(snapshot)
             except ResearchError as exc:answer=str(exc)
             except Exception:answer='AIへの接続に失敗したよ。発言は保存済み。API設定や接続を確認してね。'
     with connect() as c:
         c.execute("DELETE FROM cache WHERE key='proactive_count'")
     save_answer(answer)
+    if not companion.memory_request(content):
+        long_memory.schedule(connect, 'chat', user_message_id)
     return answer
 
 
@@ -489,7 +494,7 @@ def generate_reply(s, initiative=None, image=None, private=False):
         else:
             prompt += '登録テーマや過去に触れたニュースを使った話題提案はオフ。直前の会話を軽く受け止めるか、話せる準備があることだけを自然に伝える。'
     else:
-        prompt += ('\n記憶=' + json.dumps(s['memories'] if config.get('remember') == 'true' else [], ensure_ascii=False) + '\n最近の体調=' + json.dumps(s['health'][:7], ensure_ascii=False)
+        prompt += ('\n記憶=' + json.dumps(s.get('related_memories',s['memories'][:20]) if config.get('remember') == 'true' else [], ensure_ascii=False) + '\n最近の体調=' + json.dumps(s['health'][:7], ensure_ascii=False)
                    + '\n対象地域=' + s['settings']['region'] + '\n天気=' + json.dumps(s['weather'], ensure_ascii=False)
                    + '\n収集済みニュース=' + json.dumps(s['news'][:10], ensure_ascii=False))
         prompt += '\n関連する過去の会話（発言日時を区別し、無関係なら持ち出さない）='+json.dumps(s.get('previous_context',[]),ensure_ascii=False)
@@ -607,6 +612,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply({'app':'ASTER','version':APP_VERSION,'data_id':data_identifier()})
         if self.path == '/api/state':
             return self.reply(state())
+        if self.path.startswith('/api/memories?'):
+            params = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            query = params.get('q',[''])[0][:150]
+            return self.reply({'memories':long_memory.select(connect,query,limit=50,respect_enabled=False),
+                               'total':long_memory.memory_count(connect)})
         if self.path == '/api/live/archives':
             return self.reply({'archives': live_archive.listing(connect)})
         if self.path.startswith('/api/live/archive?'):
@@ -707,6 +717,7 @@ class Handler(BaseHTTPRequestHandler):
                     if created:
                         threading.Thread(target=live_archive.summarise, args=(connect, identifier),
                                          daemon=True).start()
+                        long_memory.schedule(connect, 'live', identifier)
                     return self.reply({'id': identifier, 'created': created,
                                        'url': '/archive#' + identifier}, 201 if created else 200)
                 if not isinstance(body, dict):
@@ -748,8 +759,11 @@ class Handler(BaseHTTPRequestHandler):
                 request = json.loads(self.rfile.read(size))
                 if not isinstance(request, dict):
                     raise ValueError('JSON形式が不正です。')
+                if not isinstance(request.get('temporary',False),bool):
+                    raise ValueError('Invalid privacy mode')
+                live_context = '' if request.get('temporary') else long_memory.session_context(connect)
                 session = live_proxy.create_live_session(
-                    request.get('sdp'), request.get('voice', 'marin')
+                    request.get('sdp'), request.get('voice', 'marin'), memory_context=live_context
                 )
                 return self.reply(session, 201)
             except (ValueError, TypeError, UnicodeError):
@@ -854,9 +868,9 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == '/api/memory':
                 with connect() as c:
                     if body.get('delete'):
-                        c.execute('DELETE FROM memories WHERE id=?', (int(body['id']),))
+                        long_memory.forget(c,int(body['id']))
                     elif body.get('id'):
-                        c.execute('UPDATE memories SET content=? WHERE id=?', (str(body['content'])[:500], int(body['id'])))
+                        long_memory.update_manual(c,int(body['id']),body.get('content',''))
                     else:
                         content = str(body.get('content', '')).strip()[:500]
                         if not content:
@@ -883,6 +897,8 @@ class Handler(BaseHTTPRequestHandler):
                             c.execute('UPDATE settings SET value=? WHERE key=?', (value, key))
                     for key,value in personal.items():
                         c.execute('UPDATE settings SET value=? WHERE key=?',(value,key))
+                    if body.get('remember') == 'false' or personal.get('auto_memory') == 'false':
+                        long_memory.invalidate(c)
                     if 'agent_daily_limit' in personal or personal.get('agent_enabled')=='true':
                         c.execute("UPDATE agent_tasks SET next_run=?,status='待機' WHERE status='本日の自動実行上限で待機'",(datetime.now(timezone.utc).isoformat(),))
             elif self.path == '/api/collect':
@@ -894,7 +910,8 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == '/api/clear':
                 # Complete earlier writes before deleting, including work started in another tab.
                 with CONVERSATION_LOCK, COLLECT_LOCK, RESEARCH_LOCK, connect() as c:
-                    for table in ('messages', 'health', 'memories', 'news', 'improvement_requests', 'external_actions', 'research_runs', 'diaries', 'goals', 'reminders', 'reminder_deliveries', 'agent_tasks', 'agent_runs', 'live_archives'):
+                    long_memory.invalidate(c)
+                    for table in ('messages', 'health', 'memories', 'memory_events', 'memory_suppressions', 'news', 'improvement_requests', 'external_actions', 'research_runs', 'diaries', 'goals', 'reminders', 'reminder_deliveries', 'agent_tasks', 'agent_runs', 'live_archives'):
                         c.execute(f'DELETE FROM {table}')
                     c.execute('DELETE FROM cache')
                     for key in (*companion.PERSONAL_FIELDS,'custom_preferences'):

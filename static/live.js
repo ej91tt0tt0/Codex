@@ -491,7 +491,11 @@
       const response = await fetch('/api/live/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sdp, voice: voiceSelector.value }),
+        body: JSON.stringify({
+          sdp,
+          voice: voiceSelector.value,
+          temporary: Boolean(isHome && $('temporary-chat')?.checked),
+        }),
         signal: connectionAbort.signal,
       });
       if (token !== generation) return;

@@ -51,6 +51,17 @@ function changedCollection(id, value) {
 function setText(id, text) {
   if ($(id).textContent !== text) $(id).textContent = text;
 }
+let memorySearchRows = null;
+let memorySearchQuery = '';
+let memorySearchSequence = 0;
+function resetMemorySearch() {
+  memorySearchRows = null;
+  memorySearchQuery = '';
+  memorySearchSequence++;
+  $('memory-search').value = '';
+  $('memory-search-status').textContent = '最新100件を表示。古い記憶は検索できます。';
+  collectionSignatures.delete('memory-list');
+}
 let activeMapsUrl = '';
 let researchRequestBusy = false;
 $('notice-close').onclick = () => {
@@ -251,23 +262,40 @@ function render(s) {
     }
     empty($('health-list'), 'まだ記録がありません。');
   }
-  if (changedCollection('memory-list', s.memories)) {
+  $('memory-count').textContent = 'PCに保存済み：' + (s.memory_total ?? s.memories.length) + '件'
+    + (s.settings.auto_memory === 'true' ? ' · 自動記憶オン' : ' · 自動記憶オフ');
+  const displayedMemories = memorySearchRows ?? s.memories;
+  if (changedCollection('memory-list', [displayedMemories, memorySearchQuery])) {
     $('memory-list').replaceChildren();
-    for (const m of s.memories) {
-      const n = el('div', null, 'card row');
-      const controls = el('div');
-      const edit = el('button', '編集');
+    for (const m of displayedMemories) {
+      const n = el('div', null, 'card row memory-item');
+      const details = el('div', null, 'memory-item-content');
+      const origin = m.source === 'auto-live' ? 'Liveから自動記憶'
+        : m.source === 'auto-chat' ? '通常チャットから自動記憶' : '手動記憶';
+      const meta = el('small', origin + (m.updated || m.created ? ' · ' + jstTime(m.updated || m.created) : ''), 'memory-item-origin');
+      details.append(el('span', m.content), meta);
+      const controls = el('div', null, 'memory-item-actions');
+      const edit = el('button', '編集', 'secondary');
+      edit.type = 'button';
       edit.onclick = () => {
         const content = prompt('記憶を編集', m.content);
-        if (content?.trim()) run(() => api('memory', { id: m.id, content }));
+        if (content?.trim()) {
+          resetMemorySearch();
+          run(() => api('memory', { id: m.id, content }));
+        }
       };
-      const del = el('button', '削除');
-      del.onclick = () => run(() => api('memory', { id: m.id, delete: true }));
+      const del = el('button', '削除', 'secondary');
+      del.type = 'button';
+      del.onclick = () => {
+        if (!confirm('この長期記憶を削除しますか？')) return;
+        resetMemorySearch();
+        run(() => api('memory', { id: m.id, delete: true }));
+      };
       controls.append(edit, del);
-      n.append(el('span', m.content), controls);
+      n.append(details, controls);
       $('memory-list').append(n);
     }
-    empty($('memory-list'), 'まだ記憶がありません。');
+    empty($('memory-list'), memorySearchQuery ? '一致する記憶がありません。' : 'まだ記憶がありません。');
   }
   if (changedCollection('news-list', s.news)) {
     $('news-list').replaceChildren();
@@ -424,6 +452,32 @@ $('health-form').onsubmit = async (e) => {
     )
   )
     $('health-note').value = '';
+};
+$('memory-search-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const q = $('memory-search').value.trim().slice(0, 150);
+  const sequence = ++memorySearchSequence;
+  $('memory-search-status').textContent = '記憶を検索しています…';
+  try {
+    if (companion?.isTemporary) throw Error('一時チャット中は保存済みの記憶を検索できません。');
+    const response = await fetch('/api/memories?q=' + encodeURIComponent(q), { cache: 'no-store' });
+    if (!response.ok) throw Error('記憶を検索できませんでした。');
+    const result = await response.json();
+    if (sequence !== memorySearchSequence) return;
+    memorySearchRows = result.memories;
+    memorySearchQuery = q;
+    $('memory-search-status').textContent = q
+      ? '検索結果：' + result.memories.length + '件（最大50件）'
+      : '最新50件を表示しています。';
+    collectionSignatures.delete('memory-list');
+    render(await api('state'));
+  } catch (error) {
+    if (sequence === memorySearchSequence) $('memory-search-status').textContent = error.message;
+  }
+};
+$('memory-search-reset').onclick = async () => {
+  resetMemorySearch();
+  render(await api('state'));
 };
 $('memory-form').onsubmit = async (e) => {
   e.preventDefault();
