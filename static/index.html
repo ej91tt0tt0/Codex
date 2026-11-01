@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/style.css" />
     <link rel="stylesheet" href="/aster-theme.css" />
     <link rel="stylesheet" href="/home-live.css" />
+    <link rel="stylesheet" href="/cinematic.css" />
     <script src="/audio.js" defer></script>
     <script src="/input.js" defer></script>
     <script src="/scope.js" defer></script>
@@ -16,8 +17,28 @@
     <script src="/companion.js" defer></script>
     <script src="/app.js" defer></script>
     <script src="/live.js" defer></script>
+    <script src="/cinematic.js" defer></script>
   </head>
   <body>
+    <div id="aster-intro" class="aster-intro" role="dialog" aria-modal="true" aria-label="ASTER起動シーケンス" hidden>
+      <div class="intro-viewport" aria-hidden="true">
+        <div class="intro-horizon"></div>
+        <div class="intro-orbit intro-orbit-outer"></div>
+        <div class="intro-orbit intro-orbit-inner"></div>
+        <div class="intro-axis intro-axis-x"></div>
+        <div class="intro-axis intro-axis-y"></div>
+        <div class="intro-emblem">
+          <svg viewBox="0 0 40 40" focusable="false" aria-hidden="true"><path d="m20 1 4 15 15 4-15 4-4 15-4-15-15-4 15-4z"/></svg>
+        </div>
+        <div class="intro-scanning"></div>
+      </div>
+      <div class="intro-copy" aria-hidden="true">
+        <span class="intro-kicker">PERSONAL AI / CONNECTION INITIATED</span>
+        <strong class="intro-wordmark">ASTER</strong>
+        <span class="intro-caption">YOUR VOICE. YOUR SPACE.</span>
+      </div>
+      <button type="button" id="intro-skip" class="intro-skip" aria-label="起動演出をスキップ">SKIP ›</button>
+    </div>
     <a class="skip-link" href="#chat">会話画面へ移動</a>
     <main>
       <header>
@@ -50,20 +71,6 @@
             <h1>声に、応える。</h1>
           </div>
           <p class="heading-note">話したいことを、そのまま。</p>
-        </div>
-        <div class="conversation-controls">
-          <label
-            >会話モード<select id="conversation-mode">
-              <option value="listen">ただ聞いてほしい</option>
-              <option value="think">一緒に考えたい</option>
-              <option value="advice">アドバイスがほしい</option>
-            </select></label
-          ><label
-            >やり取り<select id="interaction-mode">
-              <option value="voice">音声</option>
-              <option value="text">文字</option>
-            </select></label
-          ><label class="check"><input id="temporary-chat" type="checkbox" />一時チャット</label>
         </div>
         <p id="temporary-note" class="hint" hidden>
           この会話はアプリの履歴・記憶・日記に保存しないよ。写真も保存しない。終了・再読み込みで消えるよ。OpenAIへの送信は行われ、サービス側のデータの扱いは別になるよ。
@@ -117,7 +124,26 @@
             <button type="button" id="replay-reply" class="text-button">もう一度聞く</button
             ><button type="button" id="copy-reply" class="text-button">コピー</button>
           </div>
-          <p id="live-status" class="home-live-status" role="status" aria-live="polite">円形メーターの「TALK」を押すとリアルタイム音声会話が始まります。</p>
+          <p id="live-status" class="home-live-status" role="status" aria-live="polite">TALKを押して、音声会話を開始</p>
+          <p class="home-billing-note">LIVE · 接続中はAPI利用料が発生します</p>
+          <details id="home-advanced" class="home-advanced">
+            <summary>設定・字幕・詳細情報</summary>
+            <div class="home-advanced-body">
+              <label class="check cinematic-sound-control"><input id="interface-sounds" type="checkbox" checked />操作音を鳴らす</label>
+        <div class="conversation-controls">
+          <label
+            >会話モード<select id="conversation-mode">
+              <option value="listen">ただ聞いてほしい</option>
+              <option value="think">一緒に考えたい</option>
+              <option value="advice">アドバイスがほしい</option>
+            </select></label
+          ><label
+            >やり取り<select id="interaction-mode">
+              <option value="voice">音声</option>
+              <option value="text">文字</option>
+            </select></label
+          ><label class="check"><input id="temporary-chat" type="checkbox" />一時チャット</label>
+        </div>
           <div class="home-live-settings">
             <label for="live-voice">話し声
               <select id="live-voice">
@@ -168,7 +194,11 @@
               <button id="voice-stop" type="button" class="secondary" disabled>従来方式を停止</button>
             </div>
           </details>
+            </div>
+          </details>
         </div>
+        <details id="home-extra-panel" class="home-extra-panel">
+          <summary>文字入力・会話履歴</summary>
         <div class="conversation-extras">
           <details id="text-input">
             <summary>文字で入力する</summary>
@@ -212,6 +242,7 @@
             <div id="messages"></div>
           </details>
         </div>
+        </details>
       </section>
 
       <section id="tools" class="panel" hidden>
