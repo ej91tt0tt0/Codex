@@ -190,9 +190,9 @@ class MemoryTests(unittest.TestCase):
             def __exit__(self,*args): return False
             def read(self,*args):
                 return json.dumps({'session':{'id':'live_unit_test'},
-                                   'transport':{'type':'webrtc','sdp':'v=0\\r\\n'+'a'*70}}).encode()
+                                   'transport':{'type':'webrtc','sdp':'v=0\r\n'+'a'*70}}).encode()
         snippet='[{"content":"LVOREの発売時期は2027年4月","topic":"project:LVORE:発売時期"}]'
-        offer='v=0\\r\\n'+'a'*70
+        offer='v=0\r\n'+'a'*70
         with mock.patch.dict(os.environ,{'OPENAI_API_KEY':'test-api-key'}):
             with mock.patch.object(live_proxy.urllib.request,'urlopen',return_value=Response()) as network:
                 live_proxy.create_live_session(offer,'marin',memory_context=snippet)
