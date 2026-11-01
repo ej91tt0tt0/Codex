@@ -1,4 +1,4 @@
-"""ASTER 1.8: durable, bounded, user-controllable long-term conversation memory.
+"""ASTER 1.9: durable, evidence-grounded and conflict-aware long-term memory.
 
 - Conversations are never used to train a local model: only text facts are saved.
 - Automatic extraction uses the configured OpenAI API (without web search).
@@ -59,6 +59,8 @@ def init_schema(db):
         ('topic', "TEXT NOT NULL DEFAULT ''"),
         ('source_ref', "TEXT NOT NULL DEFAULT ''"),
         ('updated', "TEXT NOT NULL DEFAULT ''"),
+        ('category', "TEXT NOT NULL DEFAULT 'context'"),
+        ('evidence', "TEXT NOT NULL DEFAULT ''"),
     ):
         if name not in cols:
             db.execute('ALTER TABLE memories ADD COLUMN ' + name + ' ' + ddl)
@@ -72,6 +74,21 @@ def init_schema(db):
             fingerprint TEXT PRIMARY KEY, created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS memories_topic_index ON memories(topic);
+        CREATE TABLE IF NOT EXISTS memory_conflicts(
+            id INTEGER PRIMARY KEY, existing_id INTEGER NOT NULL,
+            proposed TEXT NOT NULL, proposed_topic TEXT NOT NULL,
+            evidence TEXT NOT NULL, source TEXT NOT NULL, source_ref TEXT NOT NULL,
+            resolved INTEGER NOT NULL DEFAULT 0,
+            created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(existing_id,proposed)
+        );
+        CREATE TABLE IF NOT EXISTS memory_revisions(
+            id INTEGER PRIMARY KEY, memory_id INTEGER NOT NULL,
+            previous_content TEXT NOT NULL,
+            changed_by TEXT NOT NULL,
+            created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS memories_category_index ON memories(category);
     """)
     db.execute("INSERT OR IGNORE INTO settings(key,value) VALUES ('memory_epoch',?)", (uuid4().hex,))
 
@@ -122,7 +139,7 @@ def _clean_candidates(source_text, answer):
         correction = raw.get('correction') is True and bool(_CORRECTION.search(evidence))
         if not any(_norm(r['fact']) == _norm(fact) for r in accepted):
             accepted.append({'fact': fact, 'topic': category + ':' + topic,
-                             'evidence': evidence, 'correction': correction})
+                             'category': category, 'evidence': evidence, 'correction': correction})
     return accepted
 
 
@@ -167,10 +184,22 @@ def _apply(db, source, source_id, candidates, epoch):
                 if _norm(match['content']) == _norm(value) or match['source'] == 'manual':
                     continue
                 if item['correction']:
+                    db.execute('INSERT INTO memory_revisions(memory_id,previous_content,changed_by) '
+                               'VALUES (?,?,?)',(match['id'],match['content'],'auto-'+source))
                     db.execute(
-                        "UPDATE memories SET content=?,source=?,source_ref=?,updated=CURRENT_TIMESTAMP WHERE id=?",
-                        (value,'auto-'+source,str(source_id),match['id']))
+                        "UPDATE memories SET content=?,source=?,source_ref=?,category=?,evidence=?,updated=CURRENT_TIMESTAMP WHERE id=?",
+                        (value,'auto-'+source,str(source_id),item.get('category','context'),
+                         item.get('evidence',''),match['id']))
+                    db.execute('UPDATE memory_conflicts SET resolved=1 WHERE existing_id=?',(match['id'],))
                     count += 1
+                else:
+                    # Both alternatives are kept out of the conversation context until
+                    # the user resolves this ambiguity. Never silently swap a fact.
+                    db.execute('INSERT OR IGNORE INTO memory_conflicts('
+                               'existing_id,proposed,proposed_topic,evidence,source,source_ref)'
+                               ' VALUES (?,?,?,?,?,?)',
+                               (match['id'],value,topic,item.get('evidence',''),
+                                'auto-'+source,str(source_id)))
                 continue
             # Also catch wording changes not sharing precisely the same model-generated topic.
             exists = db.execute('SELECT id,content FROM memories ORDER BY id DESC LIMIT 600').fetchall()
@@ -179,9 +208,10 @@ def _apply(db, source, source_id, candidates, epoch):
             if db.execute('SELECT 1 FROM memories WHERE content=?', (value,)).fetchone():
                 continue
             db.execute(
-                'INSERT OR IGNORE INTO memories(content,source,topic,source_ref,updated) '
-                'VALUES (?,?,?,?,CURRENT_TIMESTAMP)',
-                (value,'auto-'+source,topic,str(source_id)))
+                'INSERT OR IGNORE INTO memories(content,source,topic,source_ref,updated,category,evidence) '
+                'VALUES (?,?,?,?,CURRENT_TIMESTAMP,?,?)',
+                (value,'auto-'+source,topic,str(source_id),
+                 item.get('category','context'),item.get('evidence','')))
             count += 1
         return count
 
@@ -255,6 +285,7 @@ def forget(db, identifier):
         if value:
             db.execute('INSERT OR IGNORE INTO memory_suppressions(fingerprint) VALUES (?)',
                        (_fingerprint(value),))
+    db.execute('DELETE FROM memory_conflicts WHERE existing_id=?',(int(identifier),))
     db.execute('DELETE FROM memories WHERE id=?',(int(identifier),))
     return True
 
@@ -263,14 +294,19 @@ def update_manual(db, identifier, text):
     value = str(text).strip()[:500]
     if not value:
         raise ValueError('記憶する内容を入力してください。')
-    old = db.execute('SELECT topic,source FROM memories WHERE id=?',(int(identifier),)).fetchone()
+    old = db.execute('SELECT topic,source,content FROM memories WHERE id=?',(int(identifier),)).fetchone()
     if old and old['source'] != 'manual' and old['topic']:
         # A manually corrected auto-memory must not be overwritten by new
         # extraction of a previously inferred field.
         db.execute('INSERT OR IGNORE INTO memory_suppressions(fingerprint) VALUES (?)',
                    (_fingerprint(old['topic']),))
+    if old and old['content']!=value:
+        db.execute('INSERT INTO memory_revisions(memory_id,previous_content,changed_by) VALUES (?,?,?)',
+                   (int(identifier),old['content'],'user'))
+    db.execute('UPDATE memory_conflicts SET resolved=1 WHERE existing_id=?',(int(identifier),))
     db.execute(
-        "UPDATE memories SET content=?,source='manual',topic='',source_ref='',updated=CURRENT_TIMESTAMP WHERE id=?",
+        "UPDATE memories SET content=?,source='manual',topic='',source_ref='',"
+        "category='context',evidence='',updated=CURRENT_TIMESTAMP WHERE id=?",
         (value,int(identifier)))
 
 
@@ -286,20 +322,25 @@ def _score_memory(query, row):
     return score
 
 
-def select(connect, query='', limit=16, respect_enabled=True):
+def select(connect, query='', limit=16, respect_enabled=True, category=''):
     """Search *all* stored facts, not just the 100 latest in UI state."""
     limit = max(1,min(int(limit),50))
+    if category and category not in CATEGORIES:
+        raise ValueError('Memory category invalid')
     with connect() as db:
         row = db.execute("SELECT value FROM settings WHERE key='remember'").fetchone()
         if respect_enabled and (not row or row[0] != 'true'):
             return []
         rows = [dict(r) for r in db.execute(
-            "SELECT id,content,topic,source,updated,created FROM memories ORDER BY id DESC LIMIT 5000")]
+            "SELECT id,content,topic,source,updated,created,category,evidence "
+            "FROM memories ORDER BY id DESC LIMIT 10000")]
+    if category:
+        rows=[r for r in rows if r.get('category')==category]
     if not query:
         return rows[:limit]
     ranked = sorted(enumerate(rows),key=lambda ix:(_score_memory(query,ix[1]),-ix[0]),reverse=True)
     match = [r for i,r in ranked if _score_memory(query,r)>0]
-    recent = rows[:min(4,limit)]
+    recent = rows[:min(2,limit)] if not match else []
     chosen, seen = [], set()
     for row in match[:limit] + recent:
         if row['id'] not in seen and len(chosen)<limit:
@@ -324,3 +365,46 @@ def session_context(connect):
 def memory_count(connect):
     with connect() as db:
         return db.execute('SELECT count(*) FROM memories').fetchone()[0]
+
+def list_conflicts(connect, limit=30):
+    with connect() as db:
+        return [dict(row) for row in db.execute("""
+            SELECT conflict.id, conflict.existing_id, mem.content AS existing,
+                   conflict.proposed, conflict.proposed_topic AS topic,
+                   conflict.evidence, conflict.created
+            FROM memory_conflicts AS conflict
+            JOIN memories AS mem ON mem.id=conflict.existing_id
+            WHERE conflict.resolved=0 ORDER BY conflict.id DESC LIMIT ?
+        """,(max(1,min(int(limit),100)),))]
+
+
+def resolve_conflict(db, identifier, resolution):
+    """User confirmation is required before replacing an ambiguous memory."""
+    if resolution not in ('keep','replace'):
+        raise ValueError('記憶の選択が不正です。')
+    row = db.execute("""SELECT mc.existing_id,mc.proposed,mc.proposed_topic,
+                               mc.evidence,m.content,m.source
+                        FROM memory_conflicts mc JOIN memories m ON m.id=mc.existing_id
+                        WHERE mc.id=? AND mc.resolved=0""",(int(identifier),)).fetchone()
+    if not row:
+        raise ValueError('対象の記憶が見つからないか、すでに処理済みです。')
+    if resolution=='replace':
+        db.execute('INSERT INTO memory_revisions(memory_id,previous_content,changed_by) VALUES (?,?,?)',
+                   (row['existing_id'],row['content'],'user'))
+        db.execute("UPDATE memories SET content=?,source='manual',source_ref='',"
+                   "evidence=?,updated=CURRENT_TIMESTAMP WHERE id=?",
+                   (row['proposed'],row['evidence'],row['existing_id']))
+    else:
+        db.execute('INSERT OR IGNORE INTO memory_suppressions(fingerprint) VALUES (?)',
+                   (_fingerprint(row['proposed']),))
+    db.execute('UPDATE memory_conflicts SET resolved=1 WHERE existing_id=?',
+               (row['existing_id'],))
+    return True
+
+
+def revisions(connect, memory_id, limit=15):
+    with connect() as db:
+        return [dict(row) for row in db.execute(
+            'SELECT previous_content,changed_by,created FROM memory_revisions '
+            'WHERE memory_id=? ORDER BY id DESC LIMIT ?',
+            (int(memory_id),max(1,min(int(limit),50))))]

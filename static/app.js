@@ -59,6 +59,7 @@ function resetMemorySearch() {
   memorySearchQuery = '';
   memorySearchSequence++;
   $('memory-search').value = '';
+  $('memory-search-category').value = '';
   $('memory-search-status').textContent = '最新100件を表示。古い記憶は検索できます。';
   collectionSignatures.delete('memory-list');
 }
@@ -272,7 +273,9 @@ function render(s) {
       const details = el('div', null, 'memory-item-content');
       const origin = m.source === 'auto-live' ? 'Liveから自動記憶'
         : m.source === 'auto-chat' ? '通常チャットから自動記憶' : '手動記憶';
-      const meta = el('small', origin + (m.updated || m.created ? ' · ' + jstTime(m.updated || m.created) : ''), 'memory-item-origin');
+      const categories = {project:'プロジェクト',preference:'好み',goal:'目標',relationship:'人物・関係',context:'その他'};
+      const meta = el('small', (categories[m.category] || '記憶') + ' · ' + origin +
+        (m.updated || m.created ? ' · ' + jstTime(m.updated || m.created) : ''), 'memory-item-origin');
       details.append(el('span', m.content), meta);
       const controls = el('div', null, 'memory-item-actions');
       const edit = el('button', '編集', 'secondary');
@@ -296,6 +299,72 @@ function render(s) {
       $('memory-list').append(n);
     }
     empty($('memory-list'), memorySearchQuery ? '一致する記憶がありません。' : 'まだ記憶がありません。');
+  }
+
+  const conflicts = s.memory_conflicts || [];
+  $('memory-conflicts').hidden = conflicts.length === 0;
+  if (changedCollection('memory-conflicts', conflicts)) {
+    const target = $('memory-conflicts');
+    target.replaceChildren(el('h2', '内容の確認が必要な記憶：' + conflicts.length + '件'));
+    target.append(el('p', '同じテーマで異なる情報が見つかりました。自動では上書きしません。', 'hint'));
+    for (const c of conflicts) {
+      const card = el('div', null, 'memory-review-item');
+      card.append(el('p', '現在：' + c.existing));
+      card.append(el('p', '新候補：' + c.proposed));
+      card.append(el('small', '原文の根拠：' + c.evidence, 'hint'));
+      const controls = el('div', null, 'memory-item-actions');
+      for (const action of [
+        {value:'keep',label:'現在の記憶を保持'},
+        {value:'replace',label:'新しい内容を採用'},
+      ]) {
+        const button = el('button', action.label, 'secondary');
+        button.type = 'button';
+        button.onclick = () => {
+          if (!confirm('この内容で記憶を確定しますか？')) return;
+          run(() => api('memory/conflict', {id:c.id,resolution:action.value}), button);
+        };
+        controls.append(button);
+      }
+      card.append(controls);
+      target.append(card);
+    }
+  }
+  const usage = s.usage || {};
+  $('usage-summary').textContent = usage.configured
+    ? '本日：USD ' + Number(usage.today_usd).toFixed(4) +
+      ' ／ 今月：USD ' + Number(usage.month_usd).toFixed(4) +
+      ' ／ 月間予算：' + (usage.monthly_limit_usd > 0 ? 'USD ' + usage.monthly_limit_usd : '制限なし') +
+      ' ／ 未計測の呼び出し：' + (usage.unmetered_requests || 0) + '件'
+    : '料金を計測できません。';
+  $('usage-warning').hidden = !usage.warning;
+  $('usage-warning').textContent = usage.limit_reached
+    ? '概算予算に達しました。新規API呼び出しを停止しています。'
+    : '概算予算の警告ラインに近づいています。';
+  const u = usage.settings || {};
+  syncField('usage-monthly-limit', u.usage_monthly_limit_usd || '0');
+  syncField('usage-warning-percent', u.usage_warn_percent || '80');
+  syncField('usage-text-input-rate', u.usage_text_input_per_million || '0.50');
+  syncField('usage-text-output-rate', u.usage_text_output_per_million || '2.00');
+  syncField('usage-live-rate', u.usage_live_per_minute || '0.05');
+  $('backup-enabled').checked = s.settings.backup_enabled === 'true';
+  syncField('backup-interval', s.settings.backup_interval_hours || '24');
+  syncField('backup-keep', s.settings.backup_keep || '10');
+  $('backup-status').textContent = s.settings.backup_error
+    ? '前回の保存エラー：' + s.settings.backup_error
+    : (s.settings.backup_last_success
+      ? '最終保存：' + jstTime(s.settings.backup_last_success)
+      : 'まだ自動バックアップを保存していません。');
+  if (changedCollection('backup-list', s.backups || [])) {
+    const list = $('backup-list');
+    list.replaceChildren(el('h2', '保存済みのバックアップ'));
+    for (const entry of (s.backups || [])) {
+      const link = el('a', entry.name + ' · ' + Math.round(entry.size / 1024) + 'KB');
+      link.href = '/api/backups/file?name=' + encodeURIComponent(entry.name);
+      link.download = entry.name;
+      link.className = 'backup-file-row';
+      list.append(link);
+    }
+    if (!s.backups?.length) list.append(el('p', 'バックアップはまだありません。', 'hint'));
   }
   if (changedCollection('news-list', s.news)) {
     $('news-list').replaceChildren();
@@ -470,17 +539,19 @@ $('health-form').onsubmit = async (e) => {
 $('memory-search-form').onsubmit = async (e) => {
   e.preventDefault();
   const q = $('memory-search').value.trim().slice(0, 150);
+  const category = $('memory-search-category').value;
   const sequence = ++memorySearchSequence;
   $('memory-search-status').textContent = '記憶を検索しています…';
   try {
     if (companion?.isTemporary) throw Error('一時チャット中は保存済みの記憶を検索できません。');
-    const response = await fetch('/api/memories?q=' + encodeURIComponent(q), { cache: 'no-store' });
+    const response = await fetch('/api/memories?q=' + encodeURIComponent(q) +
+      '&category=' + encodeURIComponent(category), { cache: 'no-store' });
     if (!response.ok) throw Error('記憶を検索できませんでした。');
     const result = await response.json();
     if (sequence !== memorySearchSequence) return;
     memorySearchRows = result.memories;
-    memorySearchQuery = q;
-    $('memory-search-status').textContent = q
+    memorySearchQuery = q + '|' + category;
+    $('memory-search-status').textContent = (q || category)
       ? '検索結果：' + result.memories.length + '件（最大50件）'
       : '最新50件を表示しています。';
     collectionSignatures.delete('memory-list');
@@ -492,6 +563,33 @@ $('memory-search-form').onsubmit = async (e) => {
 $('memory-search-reset').onclick = async () => {
   resetMemorySearch();
   render(await api('state'));
+};
+$('usage-settings-form').onsubmit = async (e) => {
+  e.preventDefault();
+  await run(async () => {
+    await api('usage/settings', {
+      usage_monthly_limit_usd: $('usage-monthly-limit').value,
+      usage_warn_percent: $('usage-warning-percent').value,
+      usage_text_input_per_million: $('usage-text-input-rate').value,
+      usage_text_output_per_million: $('usage-text-output-rate').value,
+      usage_live_per_minute: $('usage-live-rate').value,
+    });
+    return api('state');
+  }, e.submitter);
+};
+$('backup-settings-form').onsubmit = async (e) => {
+  e.preventDefault();
+  await run(() => api('backups/settings', {
+    backup_enabled: String($('backup-enabled').checked),
+    backup_interval_hours: $('backup-interval').value,
+    backup_keep: $('backup-keep').value,
+  }), e.submitter);
+};
+$('backup-create-now').onclick = async (event) => {
+  await run(async () => {
+    await api('backups/create', {});
+    return api('state');
+  }, event.currentTarget);
 };
 $('memory-form').onsubmit = async (e) => {
   e.preventDefault();

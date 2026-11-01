@@ -161,8 +161,8 @@ class CockpitLayoutTests(unittest.TestCase):
         self.assertIn('[data-tab="voice-settings"]',live)
         self.assertIn("const captions = $('live-captions')",live)
         self.assertIn("const target = $('archive-save-status')",live)
-        self.assertIn("APP_VERSION = '1.8.2'",(ROOT / 'server.py').read_text(encoding='utf-8'))
-        self.assertIn('ASTER 1.8.2',self.html)
+        self.assertIn("APP_VERSION = '1.9.0'",(ROOT / 'server.py').read_text(encoding='utf-8'))
+        self.assertIn('ASTER 1.9',self.html)
 
 
 if __name__ == '__main__':

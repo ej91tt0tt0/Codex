@@ -19,6 +19,8 @@ import realtime_proxy
 import live_proxy
 import live_archive
 import long_memory
+import cost_guard
+import data_guard
 import mobile_access
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -36,7 +38,7 @@ CONVERSATION_LOCK = threading.RLock()
 STATE_SNAPSHOT_LOCK = threading.Lock()
 RESEARCH_LOCK = threading.Lock()
 API_STATUS = {}
-APP_VERSION = '1.8.2'
+APP_VERSION = '1.9.0'
 WEATHER_URL = 'https://www.jma.go.jp/bosai/forecast/data/forecast/230000.json'
 REGIONAL_TOPICS = '碧南市 天気,名鉄三河線 運行,知多半島道路 交通,知多高速道路 交通,国道23号 愛知 渋滞,愛知県 交通情報'
 
@@ -66,6 +68,7 @@ def init():
         live_archive.init_schema(c)
         companion.init_schema(c)
         long_memory.init_schema(c)
+        cost_guard.init_schema(c)
         autonomy.init_schema(c)
         for k, v in [('topics', '天気,交通情報,政治,ニュース,スポーツ,ゲーム,エンタメ'), ('automatic', 'true'), ('last_collected', ''), ('remember', 'true'), ('region', '愛知県碧南市浜田町'), ('regional_topics', REGIONAL_TOPICS), ('proactive_enabled', 'true'), ('proactive_interval', '600'), ('proactive_topics', 'false'), ('natural_voice', 'true'), ('high_quality_input', 'true'), ('hands_free', 'true'), ('web_search', 'true'), ('ai_collect', 'true'), ('last_research_attempt', ''), *DEFAULTS.items()]:
             c.execute('INSERT OR IGNORE INTO settings VALUES (?,?)', (k, v))
@@ -77,6 +80,10 @@ def init():
             c.execute("UPDATE settings SET value='600' WHERE key='proactive_interval' AND CAST(value AS INTEGER)<600")
             c.execute("UPDATE settings SET value='false' WHERE key='proactive_topics'")
             c.execute("INSERT INTO settings VALUES ('conversation_flow_version','1')")
+        for key,value in (('backup_enabled','true'),('backup_interval_hours','24'),('backup_keep','10'),
+                          ('backup_last_attempt',''),('backup_last_success',''),('backup_error','')):
+            c.execute('INSERT OR IGNORE INTO settings(key,value) VALUES (?,?)',(key,value))
+    cost_guard.configure(DB)
 
 def settings():
     with connect() as c:
@@ -93,6 +100,7 @@ def state():
                   for table in ('messages', 'memories', 'health', 'news', 'improvement_requests')}
         result['messages'].reverse()
         result['memory_total'] = c.execute('SELECT COUNT(*) FROM memories').fetchone()[0]
+        result['memory_conflicts'] = long_memory.list_conflicts(connect,limit=20)
         result['settings'] = dict(c.execute('SELECT key,value FROM settings').fetchall())
         result['external_actions'] = [dict(row) for row in c.execute('SELECT * FROM external_actions ORDER BY id DESC LIMIT 20')]
         result['research_runs'] = [dict(row) for row in c.execute('SELECT * FROM research_runs ORDER BY id DESC LIMIT 20')]
@@ -105,6 +113,8 @@ def state():
     result['desktop_actions_available'] = desktop_actions_available()
     result['ai_connected'] = bool(os.environ.get('ASSISTANT_API_KEY') or os.environ.get('OPENAI_API_KEY'))
     result['api_status'] = dict(API_STATUS)
+    result['usage'] = cost_guard.status(connect)
+    result['backups'] = data_guard.list_backups(DATA)[:10]
     result['version'] = APP_VERSION
     result['snapshot_revision'] = revision
     return result
@@ -260,6 +270,7 @@ def scheduler():
                     collect_research()
                 except Exception as exc:
                     print('AI collection failed:', type(exc).__name__, flush=True)
+            data_guard.sweep(connect, DATA)
         except Exception as exc:
             print('News collection failed:', type(exc).__name__, flush=True)
         time.sleep(60)
@@ -520,8 +531,11 @@ def generate_reply(s, initiative=None, image=None, private=False):
     payload = {'model': os.environ.get('OPENAI_MODEL', 'gpt-4.1-mini'), 'messages': messages, 'max_completion_tokens': 1000 if config.get('reply_style')=='detailed' else 500, 'store': False}
     req = urllib.request.Request('https://api.openai.com/v1/chat/completions', data=json.dumps(payload).encode(),
                                  headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
+    cost_guard.check_budget()
     with urllib.request.urlopen(req, timeout=60) as res:
-        answer = json.load(res)['choices'][0]['message']['content']
+        data=json.load(res)
+    cost_guard.add_text_usage('proactive',data.get('usage'))
+    answer = data['choices'][0]['message']['content']
     if not isinstance(answer, str) or not answer.strip():
         raise ValueError('AI response is empty')
     return answer
@@ -560,8 +574,11 @@ def speech_audio(text, voice='ash'):
                'instructions': '青年らしい落ち着いた中低音の日本語で、親しい相棒のように話して。高い声や甲高い響きを避け、自然な胸声と抑揚を使い、うれしい内容は笑顔が伝わる弾む声、共感や心配は柔らかく穏やかな声にして。感情は文章の意味に合わせ、単調な棒読みや過剰な演技を避けて。テンポは少し速めで、句読点では短く自然に間を取って。特定の人物の声は模倣しない。'}
     req = urllib.request.Request('https://api.openai.com/v1/audio/speech', data=json.dumps(payload).encode(),
                                  headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
+    cost_guard.check_budget()
     with urllib.request.urlopen(req, timeout=60) as response:
-        return response.read(8_000_000)
+        audio=response.read(8_000_000)
+    cost_guard.add_text_usage('tts_unmetered',None)
+    return audio
 
 
 def transcribe_audio(data, content_type):
@@ -582,8 +599,10 @@ def transcribe_audio(data, content_type):
     parts.append(('--' + boundary + '--\r\n').encode())
     req = urllib.request.Request('https://api.openai.com/v1/audio/transcriptions', data=b''.join(parts),
           headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'multipart/form-data; boundary=' + boundary})
+    cost_guard.check_budget()
     with urllib.request.urlopen(req, timeout=60) as response:
         result = json.load(response)
+    cost_guard.add_text_usage('transcribe_unmetered',None)
     text = result.get('text', '')
     if not isinstance(text, str):
         raise ValueError('Invalid transcription result')
@@ -612,10 +631,42 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply({'app':'ASTER','version':APP_VERSION,'data_id':data_identifier()})
         if self.path == '/api/state':
             return self.reply(state())
+        if self.path == '/api/usage':
+            return self.reply({'usage':cost_guard.status(connect)})
+        if self.path == '/api/backups':
+            return self.reply({'backups':data_guard.list_backups(DATA),
+                               'enabled':settings().get('backup_enabled','true')})
+        if self.path.startswith('/api/backups/file?'):
+            filename=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get('name',[''])[0]
+            if not re.fullmatch(r'aster-\d{8}T\d{6}Z-[0-9a-f]{8}\.sqlite3',filename):
+                return self.reply({'error':'バックアップ名が不正です。'},400)
+            target=data_guard.directory(DATA)/filename
+            if not target.is_file() or target.is_symlink():
+                return self.reply({'error':'バックアップが見つかりません。'},404)
+            self.send_response(200)
+            self.send_header('Content-Type','application/vnd.sqlite3')
+            self.send_header('Content-Length',str(target.stat().st_size))
+            self.send_header('Content-Disposition','attachment; filename="'+filename+'"')
+            self.send_header('Cache-Control','no-store')
+            self.send_header('X-Content-Type-Options','nosniff')
+            self.end_headers()
+            try:
+                with target.open('rb') as src:
+                    while chunk:=src.read(65536):
+                        self.wfile.write(chunk)
+            except (BrokenPipeError,ConnectionResetError):
+                pass
+            return
         if self.path.startswith('/api/memories?'):
             params = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             query = params.get('q',[''])[0][:150]
-            return self.reply({'memories':long_memory.select(connect,query,limit=50,respect_enabled=False),
+            category = params.get('category',[''])[0]
+            try:
+                matches=long_memory.select(connect,query,limit=50,respect_enabled=False,
+                                           category=category)
+            except ValueError:
+                return self.reply({'error':'記憶の分類が不正です。'},400)
+            return self.reply({'memories':matches,
                                'total':long_memory.memory_count(connect)})
         if self.path == '/api/live/archives':
             return self.reply({'archives': live_archive.listing(connect)})
@@ -761,15 +812,23 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('JSON形式が不正です。')
                 if not isinstance(request.get('temporary',False),bool):
                     raise ValueError('Invalid privacy mode')
+                cost_guard.check_budget(cost_guard.minimum_live_cost(connect))
                 live_context = '' if request.get('temporary') else long_memory.session_context(connect)
+                resume_text = request.get('resume','')
+                if not isinstance(resume_text,str) or len(resume_text)>3500:
+                    raise ValueError('Invalid resume transcript')
                 session = live_proxy.create_live_session(
-                    request.get('sdp'), request.get('voice', 'marin'), memory_context=live_context
+                    request.get('sdp'), request.get('voice', 'marin'),
+                    memory_context=live_context, resume_context=resume_text
                 )
+                cost_guard.start_live(session['session']['id'])
                 return self.reply(session, 201)
             except (ValueError, TypeError, UnicodeError):
                 return self.reply({'error': '接続データまたは音声設定を確認してください。'}, 400)
             except live_proxy.LiveCallError as error:
                 return self.reply({'error': str(error)}, 502)
+            except cost_guard.BudgetExceeded as error:
+                return self.reply({'error': str(error)}, 429)
             except Exception:
                 return self.reply({'error': '音声接続を開始できませんでした。ネットワークを確認してください。'}, 502)
         if self.path == '/api/realtime/session':
@@ -804,7 +863,35 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(size))
             if not isinstance(body, dict):
                 raise ValueError('入力が不正です。')
-            if self.path == '/api/chat':
+            if self.path == '/api/usage/settings':
+                cost_guard.change_settings(connect,body)
+                return self.reply({'usage':cost_guard.status(connect)})
+            elif self.path == '/api/usage/live':
+                result=cost_guard.update_live(body.get('session_id'),body.get('seconds'),
+                                               finished=body.get('finished') is True)
+                return self.reply({'usage':result,'over_limit':result.get('limit_reached',False)})
+            elif self.path == '/api/backups/create':
+                if body:
+                    raise ValueError('Unexpected backup parameters')
+                created=data_guard.create_backup(connect,DATA,
+                                                keep=settings().get('backup_keep','10'))
+                return self.reply({'created':created,'backups':data_guard.list_backups(DATA)[:10]})
+            elif self.path == '/api/backups/settings':
+                allowed={'backup_enabled','backup_interval_hours','backup_keep'}
+                if not body or any(k not in allowed for k in body):
+                    raise ValueError('Unknown backup setting')
+                for key,value in body.items():
+                    if key=='backup_enabled':
+                        if value not in ('true','false'): raise ValueError('Invalid enable flag')
+                    else:
+                        integer=int(value)
+                        if not (1<=integer<=168 if key=='backup_interval_hours' else 2<=integer<=40):
+                            raise ValueError('Invalid backup interval')
+                with connect() as db:
+                    for key,value in body.items():
+                        db.execute('INSERT OR REPLACE INTO settings VALUES (?,?)',(key,str(value)))
+                return self.reply(state())
+            elif self.path == '/api/chat':
                 content = str(body.get('content', '')).strip()
                 if not content or len(content) > 6000:
                     raise ValueError('発言は1〜6000文字で入力してください。')
@@ -865,6 +952,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('体調は1〜5で選んでください。')
                 with connect() as c:
                     c.execute('INSERT INTO health(mood,note) VALUES (?,?)', (mood, str(body.get('note', ''))[:2000]))
+            elif self.path == '/api/memory/conflict':
+                with connect() as c:
+                    long_memory.resolve_conflict(c,int(body.get('id')),body.get('resolution'))
             elif self.path == '/api/memory':
                 with connect() as c:
                     if body.get('delete'):
@@ -911,7 +1001,7 @@ class Handler(BaseHTTPRequestHandler):
                 # Complete earlier writes before deleting, including work started in another tab.
                 with CONVERSATION_LOCK, COLLECT_LOCK, RESEARCH_LOCK, connect() as c:
                     long_memory.invalidate(c)
-                    for table in ('messages', 'health', 'memories', 'memory_events', 'memory_suppressions', 'news', 'improvement_requests', 'external_actions', 'research_runs', 'diaries', 'goals', 'reminders', 'reminder_deliveries', 'agent_tasks', 'agent_runs', 'live_archives'):
+                    for table in ('messages', 'health', 'memories', 'memory_events', 'memory_suppressions', 'memory_conflicts', 'memory_revisions', 'usage_events', 'usage_live_sessions', 'news', 'improvement_requests', 'external_actions', 'research_runs', 'diaries', 'goals', 'reminders', 'reminder_deliveries', 'agent_tasks', 'agent_runs', 'live_archives'):
                         c.execute(f'DELETE FROM {table}')
                     c.execute('DELETE FROM cache')
                     for key in (*companion.PERSONAL_FIELDS,'custom_preferences'):
@@ -921,6 +1011,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(state())
         except ResearchError as error:
             self.reply({'error': str(error)}, 502)
+        except cost_guard.BudgetExceeded as error:
+            self.reply({'error': str(error)}, 429)
         except InitiativeLimit as error:
             self.reply({'error': str(error)}, 429)
         except (ValueError, KeyError, TypeError):

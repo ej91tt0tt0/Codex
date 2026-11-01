@@ -906,3 +906,50 @@ body.cosmos-page #chat .home-conversation-sidebar .home-live-captions {
 @media (prefers-reduced-motion: reduce) {
   #chat .home-sidebar-led { animation: none; }
 }
+
+/* ASTER 1.9 : cost safety, verified backup, evidence-based memory review. */
+body.cosmos-page #system-guard .card,
+body.cosmos-page #memory .memory-conflict-panel {
+  max-width: 920px;
+  margin: 18px 0;
+  border-left: 2px solid rgba(156,230,255,.77);
+  background: linear-gradient(125deg,rgba(9,34,57,.85),rgba(5,20,36,.88));
+}
+#system-guard .card form { display: grid; gap: 14px; margin: 18px 0; max-width: 570px; }
+#system-guard .card form label { display: grid; gap: 7px; font-size: 13px; }
+#system-guard .card form label.check { display: flex; align-items: center; }
+#system-guard .card input[type=number] { width: min(100%,280px); }
+#system-guard .card select { width: min(100%,280px); }
+#system-guard .card details { margin: 10px 0; padding: 11px; border: 1px solid rgba(99,165,215,.28); }
+#system-guard .card details label { margin: 11px 0; }
+#system-guard .card details p { overflow-wrap: anywhere; }
+#system-guard .card code { color: #9ce8ff; overflow-wrap: anywhere; user-select: all; }
+#usage-warning { color: #ffe7a7; border-left: 2px solid #f3c87e; padding: 9px 12px; background: rgba(124,86,18,.15); }
+#usage-summary { font-family: Consolas, 'SFMono-Regular', monospace; font-size: 13px; line-height: 1.8; color: #b5edff; }
+#backup-list { display: grid; gap: 6px; margin: 17px 0; }
+#backup-list .backup-file-row { display: block; border: 1px solid rgba(109,184,236,.3); padding: 10px 13px; overflow-wrap: anywhere; background: rgba(13,48,77,.35); }
+#backup-list .backup-file-row:hover { border-color: #a2e7ff; background: rgba(17,70,116,.43); }
+#memory .memory-conflict-panel h2 { font-size: 16px; }
+#memory .memory-review-item { padding: 13px 0; border-top: 1px solid rgba(99,181,229,.24); }
+#memory .memory-review-item p { margin: 6px 0; overflow-wrap: anywhere; line-height: 1.65; }
+#memory .memory-review-item .memory-item-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; }
+#memory .memory-review-item .memory-item-actions button { min-height: 44px; }
+#memory #memory-search-category { width: min(100%,230px); }
+.live-reconnect {
+  align-self: center;
+  display: block;
+  max-width: min(100%,420px);
+  margin: 8px auto;
+  padding: 12px 15px;
+  border: 1px solid rgba(173,229,255,.68);
+  color: #d8f5ff;
+  background: rgba(25,84,132,.46);
+}
+.live-reconnect[hidden] { display: none !important; }
+@media (max-width: 767px) {
+  #system-guard .card { padding: 16px 12px; }
+  #system-guard .card input[type=number] { font-size: 16px; }
+  #system-guard .card form button,
+  #backup-create-now { min-height: 44px; }
+  #memory .memory-review-item .memory-item-actions button { flex: 1 1 140px; }
+}
