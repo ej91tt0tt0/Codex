@@ -85,8 +85,8 @@ class AstralMotionTests(unittest.TestCase):
             self.assertIn("'/" + asset + "':",server)
             self.assertIn("'static/" + asset + "'",bundle)
             self.assertTrue((STATIC / asset).is_file())
-        self.assertIn("APP_VERSION = '1.8.1'",server)
-        self.assertIn('ASTER 1.8.1',(STATIC / 'index.html').read_text(encoding='utf-8'))
+        self.assertIn("APP_VERSION = '1.8.2'",server)
+        self.assertIn('ASTER 1.8.2',(STATIC / 'index.html').read_text(encoding='utf-8'))
 
     def test_all_existing_live_and_pwa_entry_points_remain(self):
         home = (STATIC / 'index.html').read_text(encoding='utf-8')
