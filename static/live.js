@@ -103,6 +103,19 @@
     try { localStorage.setItem(AUTO_START_KEY, String(autoStartEnabled)); } catch {}
     diagnose(autoStartEnabled ? '次回から画面を開くと音声接続します。API料金が発生します。' : '次回の自動音声接続を停止しました。');
   });
+  const resumeButton = $('live-reconnect');
+  const reconnectOption = $('live-auto-reconnect');
+  const AUTO_RECONNECT_KEY = 'aster-live-auto-reconnect-v1';
+  let autoReconnectEnabled = false;
+  try { autoReconnectEnabled = localStorage.getItem(AUTO_RECONNECT_KEY) === 'true'; } catch {}
+  if (reconnectOption) {
+    reconnectOption.checked = autoReconnectEnabled;
+    reconnectOption.addEventListener('change', () => {
+      autoReconnectEnabled = reconnectOption.checked;
+      try { localStorage.setItem(AUTO_RECONNECT_KEY, String(autoReconnectEnabled)); } catch {}
+      diagnose(autoReconnectEnabled ? '切断時は最大2回再接続します。新たなLive料金が発生します。' : '自動再接続をオフにしました。');
+    });
+  }
   const status = $('live-status');
   const diagnostics = $('live-diagnostics');
   const captions = $('live-captions');
@@ -124,6 +137,11 @@
   let connectionAbort = null;
   let sessionStartedAt = 0;
   let clockTimer = null;
+  let meteringTimer = null;
+  let serverReportedSeconds = 0;
+  let retryTimer = null;
+  let retryCount = 0;
+  let recoveryContext = '';
   let sessionId = null;
   let lastSpeaker = null;
   let lastTextAt = 0;
@@ -278,8 +296,47 @@
     voiceSelector.disabled = false;
     updateHomeVisual('READY');
   }
+  function reportUsage(finished = false, beacon = false) {
+    if (!sessionId) return Promise.resolve();
+    const seconds = Math.max(serverReportedSeconds,
+      sessionStartedAt ? (performance.now() - sessionStartedAt) / 1000 : 0);
+    const payload = JSON.stringify({ session_id: sessionId, seconds, finished });
+    if (beacon && navigator.sendBeacon) {
+      try { if (navigator.sendBeacon('/api/usage/live',
+        new Blob([payload], { type: 'application/json' }))) return Promise.resolve(); } catch {}
+    }
+    return fetch('/api/usage/live', {
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:payload,keepalive:finished,
+    }).then(r => r.ok ? r.json() : null).then(data => {
+      if (data?.over_limit && ready && !ending) {
+        label('設定された月間予算の目安に達しました。通話を終了します。');
+        stop();
+      }
+    }).catch(() => {}); // Metering must not break audio.
+  }
+  function reconnectAfterDrop(message) {
+    const transcript = archiveTurns.slice(-14)
+      .map(t => (t.speaker === 'あなた' ? 'USER: ' : 'ASTER: ') + t.text)
+      .join('\n');
+    // The previous session is closed and saved before a fresh billable session.
+    cleanup(message);
+    recoveryContext = transcript.slice(-3500);
+    if (resumeButton) resumeButton.hidden = false;
+    label(message + '「直前の会話を引き継いで再接続」から再開できます。');
+    if (autoReconnectEnabled && retryCount < 2 && !document.hidden) {
+      retryCount++;
+      const wait = retryCount === 1 ? 3000 : 8500;
+      diagnose('自動再接続 ' + retryCount + '/2 を ' + Math.round(wait/1000) + ' 秒後に試行します（追加料金あり）。');
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (!connection && !starting && !ending && !document.hidden) void start(true);
+      }, wait);
+    }
+  }
   function cleanup(message) {
     publishArchive(false);
+    void reportUsage(true);
     if (isHome && $('temporary-chat')) $('temporary-chat').disabled = false;
     archiveStarted = null;
     archiveId = null;
@@ -292,7 +349,8 @@
     clearTimeout(closeTimer);
     clearTimeout(networkTimer);
     clearInterval(clockTimer);
-    closeTimer = networkTimer = clockTimer = null;
+    clearInterval(meteringTimer);
+    closeTimer = networkTimer = clockTimer = meteringTimer = null;
     connectionAbort?.abort();
     connectionAbort = null;
     if (channel) {
@@ -314,6 +372,7 @@
     output.srcObject = null;
     sessionId = null;
     sessionStartedAt = 0;
+    serverReportedSeconds = 0;
     const release = releaseLock;
     releaseLock = null;
     release?.();
@@ -328,6 +387,11 @@
         starting = false;
         sessionId = event.session?.id || sessionId;
         sessionStartedAt = performance.now();
+        retryCount = 0;
+        recoveryContext = '';
+        if (resumeButton) resumeButton.hidden = true;
+        clearInterval(meteringTimer);
+        meteringTimer = setInterval(() => { void reportUsage(); },10000);
         clearInterval(clockTimer);
         clockTimer = setInterval(() => {
           timeLabel.textContent = Math.floor((performance.now() - sessionStartedAt) / 1000) + '秒';
@@ -346,6 +410,7 @@
         break;
       case 'session.usage.updated':
         if (typeof event.usage?.seconds === 'number') {
+          serverReportedSeconds = Math.max(serverReportedSeconds,event.usage.seconds);
           usage.textContent = 'API計測音声時間：約' + event.usage.seconds.toFixed(1) + '秒';
         }
         break;
@@ -368,8 +433,10 @@
         break;
       }
       case 'session.closed':
-        if (typeof event.usage?.seconds === 'number')
+        if (typeof event.usage?.seconds === 'number') {
+          serverReportedSeconds = Math.max(serverReportedSeconds,event.usage.seconds);
           usage.textContent = '確定した音声時間：' + event.usage.seconds.toFixed(1) + '秒';
+        }
         diagnose('正常終了: ' + (event.reason || 'close_requested'));
         cleanup('通話が終了しました。');
         break;
@@ -419,7 +486,7 @@
       check();
     });
   }
-  async function start() {
+  async function start(recovery = false) {
     if (connection || starting) return;
     if (isHome && $('interaction-mode')?.value === 'text') {
       label('文字入力モードです。「やり取り」を音声に切り替えてから開始してください。');
@@ -464,12 +531,13 @@
         diagnose('WebRTC: ' + connection.connectionState);
         clearTimeout(networkTimer);
         if (connection.connectionState === 'failed' || connection.connectionState === 'closed') {
-          cleanup('音声接続が終了しました。もう一度開始してください。');
+          if (!ending) reconnectAfterDrop('音声通信が終了しました。');
+          else cleanup('通話が終了しました。');
         } else if (connection.connectionState === 'disconnected') {
           label('ネットワークが不安定です。');
           networkTimer = setTimeout(() => {
             if (token === generation && connection?.connectionState === 'disconnected')
-              cleanup('接続が切れました。ネットワークを確認してください。');
+              reconnectAfterDrop('音声接続が途切れました。ネットワークを確認してください。');
           }, 6000);
         }
       };
@@ -481,7 +549,12 @@
         catch { diagnose('制御イベントの読み取りに失敗しました。'); }
       };
       channel.onclose = () => {
-        if (token === generation && !ending) diagnose('イベント通信が閉じられました。');
+        if (token !== generation || ending) return;
+        diagnose('イベント通信が閉じられました。');
+        networkTimer = setTimeout(() => {
+          if (token === generation && !ending && connection)
+            reconnectAfterDrop('音声イベント通信が切断されました。');
+        },4000);
       };
       const offer = await connection.createOffer();
       await connection.setLocalDescription(offer);
@@ -498,6 +571,7 @@
           sdp,
           voice: voiceSelector.value,
           temporary: Boolean(isHome && $('temporary-chat')?.checked),
+          resume: recovery ? recoveryContext.slice(-3500) : '',
         }),
         signal: connectionAbort.signal,
       });
@@ -522,10 +596,22 @@
         ? 'マイクの許可を確認してください。'
         : String(error?.message || '接続できませんでした。');
       diagnose('開始に失敗: ' + (error?.name || 'Error'));
-      cleanup(message);
+      if (recovery && autoReconnectEnabled && retryCount < 2 &&
+          !['NotAllowedError','NotFoundError','SecurityError'].includes(error?.name) &&
+          !/料金|予算|残高|上限/.test(message) && !document.hidden) {
+        reconnectAfterDrop('再接続に失敗しました。' + message);
+      } else {
+        cleanup(message);
+        if (recovery && resumeButton) resumeButton.hidden = false;
+      }
     }
   }
   function stop() {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    retryCount = 0;
+    recoveryContext = '';
+    if (resumeButton) resumeButton.hidden = true;
     if (ending) return;
     if (!ready || channel?.readyState !== 'open') {
       cleanup('接続をキャンセルしました。');
@@ -566,7 +652,13 @@
       diagnose('ミュートの変更に失敗しました。');
     }
   }
-  startButton.addEventListener('click', start);
+  startButton.addEventListener('click', () => { void start(false); });
+  resumeButton?.addEventListener('click', () => {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    retryCount = 0;
+    void start(true);
+  });
   if (isHome) {
     window.AsterLiveHome = {
       isActive: () => starting || ready || ending || Boolean(connection),
@@ -590,6 +682,9 @@
   stopButton.addEventListener('click', stop);
   muteButton.addEventListener('click', toggleMute);
   window.addEventListener('pagehide', () => {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    void reportUsage(true,true);
     publishArchive(true);
     // Best effort: tell Live to close before the browser tears down WebRTC.
     if (ready && channel?.readyState === 'open' && !ending) {
