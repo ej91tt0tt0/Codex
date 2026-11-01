@@ -33,6 +33,7 @@ jobs:
           node --check static/archive.js
           node --check static/cinematic.js
           node --check static/mobile.js
+          node --check static/astral.js
           node --check static/service-worker.js
       - name: Verify standard voice entry and classic fallback
         run: |
