@@ -7,6 +7,7 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/style.css" />
     <link rel="stylesheet" href="/aster-theme.css" />
+    <link rel="stylesheet" href="/home-live.css" />
     <script src="/audio.js" defer></script>
     <script src="/input.js" defer></script>
     <script src="/scope.js" defer></script>
@@ -14,6 +15,7 @@
     <script src="/handsfree.js" defer></script>
     <script src="/companion.js" defer></script>
     <script src="/app.js" defer></script>
+    <script src="/live.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#chat">会話画面へ移動</a>
@@ -81,7 +83,7 @@
         </div>
         <div class="voice-card">
           <div class="scope-label">
-            <span id="link-mode">VOICE LINK</span><span id="input-level">MIC OFF</span>
+            <span id="link-mode">LIVE / HOME</span><span id="input-level">MIC OFF</span>
           </div>
           <div class="voice-visual">
             <span class="orb-coordinate orb-coordinate-top" aria-hidden="true">ASTER</span>
@@ -93,6 +95,7 @@
                 role="img"
                 aria-label="マイクの入力音量を示す円形メーター"
               ></canvas>
+              <button id="live-orb-action" type="button" class="live-orb-action" aria-label="リアルタイム音声会話を開始" aria-pressed="false">TALK</button>
             </div>
             <span class="orb-coordinate orb-coordinate-bottom" id="orb-state" aria-hidden="true"
               >READY</span
@@ -114,32 +117,57 @@
             <button type="button" id="replay-reply" class="text-button">もう一度聞く</button
             ><button type="button" id="copy-reply" class="text-button">コピー</button>
           </div>
-          <p id="voice-status" role="status">準備中…</p>
+          <p id="live-status" class="home-live-status" role="status" aria-live="polite">円形メーターの「TALK」を押すとリアルタイム音声会話が始まります。</p>
+          <div class="home-live-settings">
+            <label for="live-voice">話し声
+              <select id="live-voice">
+                <option value="shida" selected>Shida・日本語男性</option>
+                <option value="harema">Harema・日本語女性</option>
+                <option value="marin">Marin</option>
+              </select>
+            </label>
+            <label class="check" for="live-auto-start">
+              <input id="live-auto-start" type="checkbox" />次回から起動時に接続して待機する
+            </label>
+          </div>
+          <p class="hint home-live-help">自分から話しかけるまでASTERは話し始めません。初回はTALKを押してマイクを許可してください。自動接続を有効にすると、無言でもAPI料金が発生します。</p>
+          <div class="live-stats home-live-stats">
+            <span>接続時間：<strong id="live-elapsed">0秒</strong></span>
+            <span id="live-usage">API計測時間：未計測</span>
+          </div>
+          <div id="live-captions" class="live-captions home-live-captions" role="log" aria-label="リアルタイム音声の字幕" aria-live="off"></div>
+          <audio id="live-audio" autoplay controls aria-label="ASTERの音声出力"></audio>
+          <details class="source-details home-live-diagnostics">
+            <summary>Live音声の接続診断</summary>
+            <div id="live-diagnostics" role="log" aria-live="off"></div>
+          </details>
+          <p id="voice-status" role="status">従来方式は待機中です。</p>
           <p id="voice-transcript" aria-live="polite"></p>
           <details id="research-sources" class="source-details" open hidden>
             <summary>調べた情報の出典</summary>
             <div id="latest-sources"></div>
           </details>
 
-          <p class="hint"><strong>音声会話はLive方式が標準です。</strong> 自然な発話・割り込みに対応しています。通話は別画面で開始し、API利用料が発生します。</p>
+          <p class="hint"><strong>Live音声が標準です。</strong> 円形メーターから直接開始し、話の途中でも割り込めます。Liveの会話はASTERの保存済み履歴や予定管理に自動で反映されません。</p>
           <p class="hint">Live方式からは、この画面の保存済み記憶・予定の操作はまだできません。従来の会話方式は引き続き使えます。</p>
           <details class="source-details">
             <summary>その他の音声方式</summary>
             <p class="hint"><a href="/realtime">従来のリアルタイム音声会話</a>（比較用）</p>
           </details>
-          <div class="voice-buttons">
-            <a id="live-primary-action" class="button-link" href="/live" aria-label="ASTERの標準Live音声会話画面を開く">Live音声会話を開始 ↗</a>
-            <button id="voice-start" type="button" class="secondary">従来方式で開始</button
-            ><button
-              id="voice-interrupt"
-              type="button"
-              class="secondary"
-              aria-label="今の話のまとまりを言い終えてから会話を渡す"
-              disabled
-            >
-              会話を渡す</button
-            ><button id="voice-stop" type="button" class="secondary" disabled>停止</button>
+          <div class="voice-buttons home-live-buttons">
+            <button id="live-start" type="button">リアルタイム音声を開始</button>
+            <button id="live-mute" type="button" class="secondary" disabled>マイクをミュート</button>
+            <button id="live-stop" type="button" class="secondary" disabled>通話を終了</button>
           </div>
+          <details class="source-details classic-voice-options">
+            <summary>従来方式の音声会話</summary>
+            <p class="hint">保存済み記憶や予定を使う場合はこちら。Live通話を終了してから開始してください。</p>
+            <div class="classic-voice-buttons">
+              <button id="voice-start" type="button" class="secondary">従来方式で開始</button>
+              <button id="voice-interrupt" type="button" class="secondary" aria-label="今の話のまとまりを言い終えてから会話を渡す" disabled>会話を渡す</button>
+              <button id="voice-stop" type="button" class="secondary" disabled>従来方式を停止</button>
+            </div>
+          </details>
         </div>
         <div class="conversation-extras">
           <details id="text-input">
