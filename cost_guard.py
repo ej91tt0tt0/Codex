@@ -32,7 +32,7 @@ class BudgetExceeded(Exception):
 
 def configure(db_path):
     global _DB_PATH
-    _DB_PATH = str(db_path)
+    _DB_PATH = str(db_path) if db_path is not None else None
 
 
 def init_schema(db):
