@@ -452,8 +452,11 @@
         if (token !== generation) return;
         output.srcObject = new MediaStream([event.track]);
         output.play().catch(() => {
-          if (isHome && $('home-advanced')) $('home-advanced').open = true;
-          label('音声の自動再生が制限されました。詳細設定内の再生ボタンを押してください。');
+          if (isHome && $('home-advanced')) {
+            $('home-advanced').open = true;
+            document.querySelector('[data-tab="voice-settings"]')?.click();
+          }
+          label('音声の自動再生が制限されました。設定・字幕・詳細情報の再生ボタンを押してください。');
         });
       };
       connection.onconnectionstatechange = () => {
