@@ -515,13 +515,18 @@ body.cosmos-page .live-panel h2 { letter-spacing: .12em; }
 }
 @keyframes astral-scan-screen { from { transform: translateY(-10vh); } to { transform: translateY(155vh); } }
 @keyframes astral-nav-pulse { 0%,100% { opacity: .28; } 50% { opacity: 1; } }
+/* Opacity-only on page/panel ancestors: transform/filter here would break
+   position:fixed mobile mute/end controls by creating a containing block. */
 @keyframes astral-main-arrive {
-  from { opacity: .15; transform: translate3d(0,18px,0); filter: blur(9px); }
-  to { opacity: 1; transform: translate3d(0,0,0); filter: blur(0); }
+  from { opacity: .12; }
+  42% { opacity: .65; }
+  to { opacity: 1; }
 }
 @keyframes astral-panel-project {
-  from { opacity: .22; transform: translate3d(0,21px,0) scale(.987); filter: blur(5px); }
-  to { opacity: 1; transform: translate3d(0,0,0) scale(1); filter: blur(0); }
+  from { opacity: .09; }
+  34% { opacity: .35; }
+  65% { opacity: .86; }
+  to { opacity: 1; }
 }
 @keyframes astral-message-arrive {
   from { opacity: 0; transform: translateY(12px) scale(.986); }
