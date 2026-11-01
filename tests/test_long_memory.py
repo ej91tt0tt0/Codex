@@ -184,6 +184,53 @@ class MemoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             live_proxy.create_live_session('bad','marin',memory_context='x'*6501)
 
+    def test_live_session_passes_readonly_memory_to_voice_and_delegate(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def read(self,*args):
+                return json.dumps({'session':{'id':'live_unit_test'},
+                                   'transport':{'type':'webrtc','sdp':'v=0\\r\\n'+'a'*70}}).encode()
+        snippet='[{"content":"LVOREの発売時期は2027年4月","topic":"project:LVORE:発売時期"}]'
+        offer='v=0\\r\\n'+'a'*70
+        with mock.patch.dict(os.environ,{'OPENAI_API_KEY':'test-api-key'}):
+            with mock.patch.object(live_proxy.urllib.request,'urlopen',return_value=Response()) as network:
+                live_proxy.create_live_session(offer,'marin',memory_context=snippet)
+        sent=json.loads(network.call_args.args[0].data)
+        self.assertIn(snippet,sent['session']['instructions'])
+        self.assertIn(snippet,sent['session']['delegation']['responses']['instructions'])
+        self.assertFalse(sent['session']['store'])
+        with mock.patch.dict(os.environ,{'OPENAI_API_KEY':'test-api-key'}):
+            with mock.patch.object(live_proxy.urllib.request,'urlopen',return_value=Response()) as network:
+                live_proxy.create_live_session(offer,'marin',memory_context='')
+        sent=json.loads(network.call_args.args[0].data)
+        self.assertNotIn(snippet,sent['session']['instructions'])
+        self.assertNotIn(snippet,sent['session']['delegation']['responses']['instructions'])
+
+    def test_temporary_live_ui_explicitly_requests_no_memory(self):
+        root=Path(__file__).resolve().parents[1]
+        js=(root / 'static' / 'live.js').read_text(encoding='utf-8')
+        server=(root / 'server.py').read_text(encoding='utf-8')
+        self.assertIn("temporary: Boolean(isHome && $('temporary-chat')?.checked)",js)
+        self.assertIn("if request.get('temporary') else long_memory.session_context(connect)",server)
+        self.assertIn("long_memory.schedule(connect, 'live', identifier)",server)
+        self.assertIn("long_memory.schedule(connect, 'chat', user_message_id)",server)
+
+    def test_manual_edit_blocks_future_auto_overwrite(self):
+        mid=self.source()
+        self.capture_as(mid,self.response())
+        with self.connect() as db:
+            old=db.execute("SELECT id FROM memories").fetchone()[0]
+            long_memory.update_manual(db,old,'自分で確認して変更したLVORE発売時期')
+        corrected='LVOREの発売時期を変更して2027年6月にしました。'
+        mid=self.source(corrected)
+        count,_=self.capture_as(mid,self.response(corrected,
+                              'LVORE発売時期は2027年6月。',correction=True))
+        self.assertEqual(count,0)
+        rows=long_memory.select(self.connect,limit=10)
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]['content'],'自分で確認して変更したLVORE発売時期')
+
     def test_no_extraction_without_optin_or_api_key(self):
         mid=self.source()
         with self.connect() as db:
