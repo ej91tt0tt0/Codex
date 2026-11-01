@@ -26,13 +26,13 @@ class DesktopOriginTests(unittest.TestCase):
             c.execute('CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT)')
             c.executemany('INSERT INTO settings VALUES (?,?)', [('automatic', 'false'), ('desktop_port', str(port))])
 
-    def test_browser_launch_opens_live_voice_entry(self):
+    def test_browser_launch_opens_home_live_voice_entry(self):
         """The desktop opens voice first and never implicitly opens classic home."""
         from unittest import mock
         import launch
         with mock.patch('launch.webbrowser.open') as browser:
             launch.reuse_running('http://127.0.0.1:8000', False)
-        browser.assert_called_once_with('http://127.0.0.1:8000/live')
+        browser.assert_called_once_with('http://127.0.0.1:8000')
 
     def test_listen_first_requires_explicit_opt_in(self):
         """Default boot must not automatically charge for a voice session."""

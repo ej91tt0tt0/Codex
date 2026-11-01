@@ -1,4 +1,4 @@
-/* ASTER GPT-Live WebRTC preview. Existing Realtime and classic voice are untouched. */
+/* ASTER GPT-Live WebRTC controller shared by the home orb and /live. */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -6,6 +6,93 @@
   const stopButton = $('live-stop');
   const muteButton = $('live-mute');
   const voiceSelector = $('live-voice');
+  const homeOrb = $('live-orb-action');
+  const isHome = Boolean(homeOrb);
+  const meter = isHome && window.AsterScope
+    ? new window.AsterScope.ScopeView($('voice-scope'), $('input-level'))
+    : null;
+  let audioContext = null;
+  let meterFrame = 0;
+  let meterAnalyser = null;
+  let meterWave = null;
+  let meterBands = null;
+  function clearMeter() {
+    if (meterFrame) cancelAnimationFrame(meterFrame);
+    meterFrame = 0;
+    meterAnalyser = null;
+    meterWave = null;
+    meterBands = null;
+    if (audioContext) {
+      audioContext.close().catch(() => {});
+      audioContext = null;
+    }
+    meter?.draw(0, new Uint8Array(0));
+    if (isHome) $('input-level').textContent = 'MIC OFF';
+  }
+  function connectMeter(stream) {
+    if (!meter || !(window.AudioContext || window.webkitAudioContext)) return;
+    const Context = window.AudioContext || window.webkitAudioContext;
+    try {
+      audioContext = new Context();
+      const input = audioContext.createMediaStreamSource(stream);
+      meterAnalyser = audioContext.createAnalyser();
+      meterAnalyser.fftSize = 256;
+      meterAnalyser.smoothingTimeConstant = 0.65;
+      input.connect(meterAnalyser); // Never connect this analyser to speakers.
+      meterWave = new Uint8Array(meterAnalyser.fftSize);
+      meterBands = new Uint8Array(meterAnalyser.frequencyBinCount);
+      if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+      let lastFrame = 0;
+      const tick = (now) => {
+        if (!meterAnalyser) return;
+        meterFrame = requestAnimationFrame(tick);
+        if (now - lastFrame < 32) return; // Cap canvas updates at about 30 fps.
+        lastFrame = now;
+        meterAnalyser.getByteTimeDomainData(meterWave);
+        meterAnalyser.getByteFrequencyData(meterBands);
+        let power = 0;
+        for (const sample of meterWave) {
+          const diff = (sample - 128) / 128;
+          power += diff * diff;
+        }
+        const level = muted ? 0 : Math.min(1, Math.sqrt(power / meterWave.length) * 4.5);
+        meter.draw(level, muted ? new Uint8Array(0) : meterBands);
+      };
+      meterFrame = requestAnimationFrame(tick);
+    } catch {
+      clearMeter(); // A visualizer error must not break live audio.
+      diagnose('音量メーターを起動できませんでしたが、音声会話は続行できます。');
+    }
+  }
+  function updateHomeVisual(state) {
+    if (!isHome) return;
+    const busy = state === 'CONNECTING' || state === 'LISTENING' ||
+                 state === 'MUTED' || state === 'STOPPING';
+    const listening = state === 'LISTENING';
+    const orb = document.querySelector('.voice-orb');
+    orb?.classList.toggle('listening', listening);
+    orb?.classList.toggle('speaking', false);
+    document.body.classList.toggle('home-live-active', busy);
+    homeOrb.textContent = busy ? (state === 'CONNECTING' ? 'CANCEL' : state === 'STOPPING' ? 'WAIT' : 'END') : 'TALK';
+    homeOrb.disabled = state === 'STOPPING';
+    homeOrb.setAttribute('aria-label', busy ? 'リアルタイム音声通話を終了する' : 'リアルタイム音声会話を開始');
+    homeOrb.setAttribute('aria-pressed', String(busy));
+    const stateEl = $('orb-state');
+    if (stateEl) stateEl.textContent = state;
+    const topButton = $('mic-toggle');
+    if (topButton) {
+      topButton.textContent = state === 'LISTENING' ? '● Live会話中'
+        : state === 'MUTED' ? '● Liveミュート中'
+        : state === 'CONNECTING' ? 'Live接続中'
+        : state === 'STOPPING' ? 'Live終了中'
+        : 'Live待機中';
+      topButton.classList.toggle('mic-live', listening);
+      topButton.setAttribute('aria-pressed', String(busy));
+      topButton.setAttribute('aria-label', busy ? 'Live音声通話を終了する' : 'Live音声会話を開始');
+    }
+    const label = $('link-mode');
+    if (label) label.textContent = 'VOICE / LIVE';
+  }
   const autoStart = $('live-auto-start');
   const AUTO_START_KEY = 'aster-live-auto-start-v1';
   let autoStartEnabled = false;
@@ -71,6 +158,7 @@
     muteButton.disabled = true;
     muteButton.textContent = 'マイクをミュート';
     voiceSelector.disabled = false;
+    updateHomeVisual('READY');
   }
   function cleanup(message) {
     generation++;
@@ -90,6 +178,7 @@
       try { channel.close(); } catch {}
       channel = null;
     }
+    clearMeter();
     if (microphone) {
       microphone.getTracks().forEach((track) => track.stop());
       microphone = null;
@@ -122,7 +211,8 @@
         }, 1000);
         stopButton.disabled = false;
         muteButton.disabled = false;
-        label('会話中。自然に話しかけてください。');
+        label('Live会話中です。あなたから話しかけてください。');
+        updateHomeVisual(muted ? 'MUTED' : 'LISTENING');
         diagnose('GPT-Liveの音声会話が開始しました。');
         break;
       case 'session.input_transcript.delta':
@@ -149,6 +239,8 @@
         pendingMute = null;
         muteButton.disabled = false;
         muteButton.textContent = muted ? 'マイクのミュート解除' : 'マイクをミュート';
+        microphone?.getAudioTracks().forEach((track) => { track.enabled = !muted; });
+        updateHomeVisual(muted ? 'MUTED' : 'LISTENING');
         label(muted ? 'マイクをミュート中です。' : '会話中。自然に話しかけてください。');
         break;
       }
@@ -164,6 +256,7 @@
             (!event.error?.client_event_id ||
              event.error.client_event_id === pendingMute.id)) {
           pendingMute = null;
+          microphone?.getAudioTracks().forEach((track) => { track.enabled = !muted; });
           muteButton.disabled = !ready || ending;
           diagnose('ミュート変更は受け付けられませんでした。');
         }
@@ -205,15 +298,21 @@
   }
   async function start() {
     if (connection || starting) return;
+    if (isHome && $('interaction-mode')?.value === 'text') {
+      label('文字入力モードです。「やり取り」を音声に切り替えてから開始してください。');
+      return;
+    }
     starting = true;
     const token = ++generation;
     startButton.disabled = true;
     voiceSelector.disabled = true;
+    updateHomeVisual('CONNECTING');
     stopButton.disabled = false; // Cancel while connecting.
     label('マイクを準備しています…');
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection)
         throw new Error('Chrome / Edge とマイクの利用許可が必要です。');
+      if (isHome) window.AsterClassic?.stop?.();
       if (!(await micLock(token)))
         throw new Error('他のASTER画面がマイクを使用中です。そちらを停止してください。');
       if (token !== generation) return;
@@ -224,6 +323,7 @@
         microphone.getTracks().forEach((track) => track.stop());
         return;
       }
+      connectMeter(microphone);
       connection = new RTCPeerConnection();
       connection.ontrack = (event) => {
         if (token !== generation) return;
@@ -301,6 +401,7 @@
       return;
     }
     ending = true;
+    updateHomeVisual('STOPPING');
     stopButton.disabled = true;
     muteButton.disabled = true;
     label('通話を終了しています…');
@@ -321,6 +422,7 @@
     try {
       pendingMute = { id, next };
       muteButton.disabled = true;
+      if (next) microphone?.getAudioTracks().forEach((track) => { track.enabled = false; });
       channel.send(JSON.stringify({
         type: next ? 'session.input_audio.mute' : 'session.input_audio.unmute',
         event_id: id,
@@ -328,11 +430,25 @@
       label('マイク設定の反映を確認しています…');
     } catch {
       pendingMute = null;
+      microphone?.getAudioTracks().forEach((track) => { track.enabled = !muted; });
       muteButton.disabled = false;
       diagnose('ミュートの変更に失敗しました。');
     }
   }
   startButton.addEventListener('click', start);
+  if (isHome) {
+    window.AsterLiveHome = {
+      isActive: () => starting || ready || ending || Boolean(connection),
+      toggle: () => (starting || ready || ending || connection) ? stop() : start(),
+      stop,
+      refresh: () => updateHomeVisual('READY'),
+    };
+    homeOrb.addEventListener('click', () => window.AsterLiveHome.toggle());
+    $('interaction-mode')?.addEventListener('change', () => {
+      if ($('interaction-mode').value === 'text' && window.AsterLiveHome.isActive()) stop();
+    });
+    updateHomeVisual('READY');
+  }
   // Opt-in only: never create billable sessions automatically on first visit.
   if (autoStartEnabled) start();
   stopButton.addEventListener('click', stop);

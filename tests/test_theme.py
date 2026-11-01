@@ -21,6 +21,7 @@ class ThemeTests(unittest.TestCase):
         source = (ROOT / "server.py").read_text(encoding="utf-8")
         self.assertIn("'/aster-theme.css':", source)
         self.assertIn("'/live-theme.css':", source)
+        self.assertIn("'/home-live.css':", source)
 
     def test_dark_design_and_brand_preservation(self):
         css = (STATIC / "aster-theme.css").read_text(encoding="utf-8")
@@ -49,7 +50,7 @@ class ThemeTests(unittest.TestCase):
         for name in (
             "live_proxy.py", "realtime_proxy.py", "static/live.html",
             "static/live.js", "static/realtime.html", "static/realtime.js",
-            "static/aster-theme.css", "static/live-theme.css",
+            "static/aster-theme.css", "static/live-theme.css", "static/home-live.css",
         ):
             with self.subTest(name=name):
                 self.assertIn(name, files)

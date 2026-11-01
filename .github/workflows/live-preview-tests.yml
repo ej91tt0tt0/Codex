@@ -27,6 +27,7 @@ jobs:
       - name: Check browser JavaScript syntax
         run: |
           node --check static/live.js
+          node --check static/scope.js
           node --check static/app.js
           node --check static/realtime.js
       - name: Verify standard voice entry and classic fallback
@@ -35,7 +36,8 @@ jobs:
           from pathlib import Path
           home = Path("static/index.html").read_text(encoding="utf-8")
           app = Path("static/app.js").read_text(encoding="utf-8")
-          assert 'id="live-primary-action"' in home and 'href="/live"' in home
+          assert 'id="live-orb-action"' in home and 'id="live-start"' in home
+          assert 'id="live-captions"' in home and 'href="/home-live.css"' in home
           assert 'id="voice-start"' in home and 'id="voice-stop"' in home
           assert "従来方式で開始" in app
           assert "if self.path == '/api/live/session':" in Path("server.py").read_text(encoding="utf-8")

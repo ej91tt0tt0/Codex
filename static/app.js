@@ -1,4 +1,6 @@
 const $ = (id) => document.getElementById(id);
+const HOME_LIVE_DEFAULT = Boolean($('live-orb-action'));
+if (HOME_LIVE_DEFAULT) document.body.classList.add('home-live-mode');
 const el = (tag, text, cls) => {
   const n = document.createElement(tag);
   if (text) n.textContent = text;
@@ -343,7 +345,9 @@ function render(s) {
     voice.highQualityEnabled = quality;
     $('high-quality-input').checked = cfg.high_quality_input !== 'false';
     $('hands-free').checked = cfg.hands_free === 'true';
-    handsfree.configure(cfg.hands_free === 'true' && cfg.interaction_mode !== 'text');
+    if (HOME_LIVE_DEFAULT && cfg.interaction_mode === 'text' &&
+        window.AsterLiveHome?.isActive?.()) window.AsterLiveHome.stop();
+    handsfree.configure(!HOME_LIVE_DEFAULT && cfg.hands_free === 'true' && cfg.interaction_mode !== 'text');
     const enabled = cfg.proactive_enabled === 'true',
       interval = Number(cfg.proactive_interval || 600) * 1000;
     if (voice.proactiveEnabled !== enabled || voice.idleMilliseconds !== interval) {
@@ -570,7 +574,7 @@ const voice = new AsterVoice.VoiceController({
     $('refresh-devices').disabled = !voice.usingDuplex;
     $('voice-start').disabled = (!voice.Recognition && !voice.usingDuplex) || s.active || s.busy;
     $('voice-stop').disabled = !(s.active || s.speaking || s.busy);
-    if (!s.listening) $('input-level').textContent = 'MIC OFF';
+    if (!s.listening && (!HOME_LIVE_DEFAULT || voice.active)) $('input-level').textContent = 'MIC OFF';
     $('voice-greet').disabled = s.busy;
     $('photo-input').disabled = s.busy || s.speaking;
     $('photo-clear').disabled = s.busy || s.speaking;
@@ -579,6 +583,7 @@ const voice = new AsterVoice.VoiceController({
     sendButton.textContent = s.busy ? '追加を送信' : '送信 ↗';
     $('temporary-chat').disabled = s.busy;
     $('voice-interrupt').disabled = !s.active || (s.busy && !s.speaking);
+    if (!HOME_LIVE_DEFAULT || voice.active) {
     document.querySelector('.voice-orb').classList.toggle('speaking', s.speaking);
     document.querySelector('.voice-orb').classList.toggle('thinking', s.busy && !s.speaking);
     $('orb-state').textContent = voice.inputSpeaking
@@ -620,6 +625,7 @@ const voice = new AsterVoice.VoiceController({
       s.active ? 'マイク待ち受けを停止' : 'マイク待ち受けを開始',
     );
     document.querySelector('.voice-orb').classList.toggle('listening', s.listening);
+    }
   },
 });
 let sessionStorageForMic = null;
@@ -633,6 +639,15 @@ const handsfree = new AsterHandsFree.HandsFreeSession({
     $('voice-status').textContent = text;
   },
 });
+if (HOME_LIVE_DEFAULT) {
+  window.AsterClassic = {
+    isActive: () => voice.active,
+    stop: () => {
+      handsfree.close();
+      document.body.classList.remove('classic-home-active');
+    },
+  };
+}
 companion = new AsterCompanion.CompanionUI({
   api,
   voice,
@@ -642,7 +657,7 @@ companion = new AsterCompanion.CompanionUI({
 });
 voice.beforeInput = (text) => handsfree.handleCommand(text);
 voice.canInitiate = () =>
-  !document.hidden && !$('chat').hidden && !companion.isTemporary && companion.channel === 'voice';
+  (!HOME_LIVE_DEFAULT || voice.active) && !document.hidden && !$('chat').hidden && !companion.isTemporary && companion.channel === 'voice';
 async function refreshMicDevices() {
   if (!navigator.mediaDevices?.enumerateDevices) return;
   try {
@@ -680,10 +695,19 @@ $('input-device').onchange = async () => {
 };
 navigator.mediaDevices?.addEventListener?.('devicechange', refreshMicDevices);
 $('voice-start').onclick = async () => {
+  if (HOME_LIVE_DEFAULT && window.AsterLiveHome?.isActive?.()) {
+    $('voice-status').textContent = 'Live音声を終了してから従来方式を開始してください。';
+    return;
+  }
+  if (HOME_LIVE_DEFAULT) document.body.classList.add('classic-home-active');
   await companion.startVoice();
   await refreshMicDevices();
 };
 $('mic-toggle').onclick = async () => {
+  if (HOME_LIVE_DEFAULT && !voice.active) {
+    window.AsterLiveHome?.toggle?.();
+    return;
+  }
   if (voice.active) {
     if (voice.usingDuplex && microphone.context?.state === 'suspended') {
       try {
@@ -692,13 +716,17 @@ $('mic-toggle').onclick = async () => {
       } catch {}
     }
     handsfree.stop();
+    if (HOME_LIVE_DEFAULT) {
+      document.body.classList.remove('classic-home-active');
+      window.AsterLiveHome?.refresh?.();
+    }
   } else await companion.startVoice();
 };
 $('hands-free').onchange = async () => {
   const enabled = $('hands-free').checked;
   if (!enabled) handsfree.stop();
   if (await run(() => api('settings', { hands_free: String(enabled) }))) {
-    if (enabled) await handsfree.start();
+    if (enabled && !HOME_LIVE_DEFAULT) await handsfree.start();
   }
 };
 $('voice-interrupt').onclick = () => voice.interrupt();
@@ -777,7 +805,13 @@ $('export-requests').onclick = () => {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
-$('voice-stop').onclick = () => handsfree.stop();
+$('voice-stop').onclick = () => {
+  handsfree.stop();
+  if (HOME_LIVE_DEFAULT) {
+    document.body.classList.remove('classic-home-active');
+    window.AsterLiveHome?.refresh?.();
+  }
+};
 $('voice-greet').onclick = () => {
   document.querySelector('header [data-tab=chat]').click();
   voice.replayGreeting();
@@ -826,7 +860,9 @@ setInterval(refreshResearch, 30000);
 run(() => api('state'))
   .then(async (ok) => {
     if (!ok) return;
-    if (!(await handsfree.restore())) await voice.greet();
+    if (!HOME_LIVE_DEFAULT) {
+      if (!(await handsfree.restore())) await voice.greet();
+    }
     await refreshMicDevices();
   })
   .then(() => {
