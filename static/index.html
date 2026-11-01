@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/aster-theme.css" />
     <link rel="stylesheet" href="/home-live.css" />
     <link rel="stylesheet" href="/cinematic.css" />
+    <link rel="stylesheet" href="/cosmos.css" />
     <script src="/audio.js" defer></script>
     <script src="/input.js" defer></script>
     <script src="/scope.js" defer></script>
@@ -19,7 +20,7 @@
     <script src="/live.js" defer></script>
     <script src="/cinematic.js" defer></script>
   </head>
-  <body>
+  <body class="cosmos-page">
     <div id="aster-intro" class="aster-intro" role="dialog" aria-modal="true" aria-label="ASTER起動シーケンス" hidden>
       <div class="intro-viewport" aria-hidden="true">
         <div class="intro-horizon"></div>
@@ -39,6 +40,11 @@
       </div>
       <button type="button" id="intro-skip" class="intro-skip" aria-label="起動演出をスキップ">SKIP ›</button>
     </div>
+    <div class="cosmos-background" aria-hidden="true">
+      <span class="star-layer stars-distant"></span>
+      <span class="star-layer stars-middle"></span>
+      <span class="star-layer stars-near"></span>
+    </div>
     <a class="skip-link" href="#chat">会話画面へ移動</a>
     <main>
       <header>
@@ -50,7 +56,7 @@
         >
         <nav aria-label="画面の切り替え">
           <button type="button" data-tab="chat" class="active">会話</button
-          ><button type="button" data-tab="tools" id="menu-button">メニュー</button>
+          ><button type="button" data-tab="tools" id="menu-button">メニュー</button><a class="archive-nav" href="/archive">会話記録</a>
         </nav>
         <button
           id="mic-toggle"
@@ -102,6 +108,9 @@
                 role="img"
                 aria-label="マイクの入力音量を示す円形メーター"
               ></canvas>
+              <span class="orb-gyro orb-gyro-a" aria-hidden="true"></span>
+              <span class="orb-gyro orb-gyro-b" aria-hidden="true"></span>
+              <span class="orb-gyro orb-gyro-c" aria-hidden="true"></span>
               <button id="live-orb-action" type="button" class="live-orb-action" aria-label="リアルタイム音声会話を開始" aria-pressed="false">TALK</button>
             </div>
             <span class="orb-coordinate orb-coordinate-bottom" id="orb-state" aria-hidden="true"
@@ -124,6 +133,12 @@
             <button type="button" id="replay-reply" class="text-button">もう一度聞く</button
             ><button type="button" id="copy-reply" class="text-button">コピー</button>
           </div>
+          <div class="home-log-heading">
+            <span>LIVE CONVERSATION / 会話ログ</span>
+            <a href="/archive">会話記録を開く</a>
+          </div>
+          <div id="live-captions" class="live-captions home-live-captions" role="log" aria-label="リアルタイム音声の字幕" aria-live="off"></div>
+          <p id="archive-save-status" class="archive-save-status" role="status" aria-live="polite">通話終了時に会話ログを自動保存します。</p>
           <p id="live-status" class="home-live-status" role="status" aria-live="polite">TALKを押して、音声会話を開始</p>
           <p class="home-billing-note">LIVE · 接続中はAPI利用料が発生します</p>
           <div class="voice-buttons home-live-buttons">
@@ -166,7 +181,7 @@
             <span>接続時間：<strong id="live-elapsed">0秒</strong></span>
             <span id="live-usage">API計測時間：未計測</span>
           </div>
-          <div id="live-captions" class="live-captions home-live-captions" role="log" aria-label="リアルタイム音声の字幕" aria-live="off"></div>
+
           <audio id="live-audio" autoplay controls aria-label="ASTERの音声出力"></audio>
           <details class="source-details home-live-diagnostics">
             <summary>Live音声の接続診断</summary>
@@ -179,7 +194,7 @@
             <div id="latest-sources"></div>
           </details>
 
-          <p class="hint"><strong>Live音声が標準です。</strong> 円形メーターから直接開始し、話の途中でも割り込めます。Liveの会話はASTERの保存済み履歴や予定管理に自動で反映されません。</p>
+          <p class="hint"><strong>Live音声が標準です。</strong> 円形メーターから直接開始し、割り込みできます。文字起こしされたLive会話は通話終了時に「会話記録」へ自動保存・要約されます。音声ファイル自体は保存せず、予定や長期記憶には反映されません。</p>
           <p class="hint">Live方式からは、この画面の保存済み記憶・予定の操作はまだできません。従来の会話方式は引き続き使えます。</p>
           <details class="source-details">
             <summary>その他の音声方式</summary>
@@ -877,7 +892,7 @@
       </div>
       <footer class="app-footer">
         <span class="footer-brand"
-          >ASTER 1.4<span class="footer-divider"> / </span>PERSONAL COMPANION</span
+          >ASTER 1.5<span class="footer-divider"> / </span>PERSONAL COMPANION</span
         ><span id="session-privacy">通常の会話 · このPCに保存</span
         ><time id="local-clock" aria-label="日本時間"></time>
       </footer>
