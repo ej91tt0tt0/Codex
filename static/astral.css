@@ -343,7 +343,7 @@ body.cosmos-page .voice-orb::after {
   inset: -8%;
   opacity: .6;
   border: 1px dashed rgba(138,218,255,.39);
-  animation: astral-aura-rotate 52s linear infinite reverse;
+  animation: astral-ring-turn 52s linear infinite reverse;
 }
 body.cosmos-page .orb-gyro { border-color: rgba(135,211,255,.55); }
 body.cosmos-page .orb-gyro-a { border-left-color: #d4f6ff; box-shadow: inset 0 0 18px rgba(121,216,255,.15),0 0 25px rgba(103,191,255,.16); }
@@ -384,7 +384,7 @@ body.cosmos-page .voice-orb.listening .astral-reactor {
 }
 body.cosmos-page .voice-orb.listening .astral-arc { animation-duration: 4s; }
 body.cosmos-page .voice-orb.listening {
-  filter: drop-shadow(0 0 calc(27px + 18px * var(--astral-voice)) rgba(83,195,252,.42));
+  filter: drop-shadow(0 0 var(--astral-glow,32px) rgba(83,195,252,.42));
 }
 body.cosmos-page .voice-orb .live-orb-action {
   background: radial-gradient(circle at 35% 22%,rgba(67,164,227,.53),rgba(7,30,55,.98) 67%);
@@ -462,7 +462,7 @@ body.cosmos-page .archive-summary {
   border: 1px dashed rgba(157,229,255,.41);
   box-shadow: 0 0 26px rgba(112,201,255,.13);
   transform: rotateY(73deg);
-  animation: astral-reactor-spin 15s linear infinite reverse;
+  animation: astral-stage-gyro 15s linear infinite reverse;
 }
 .astral-stage-mark {
   position: relative;
@@ -529,6 +529,11 @@ body.cosmos-page .live-panel h2 { letter-spacing: .12em; }
 }
 @keyframes astral-aura-rotate { to { transform: translate(-50%,-50%) rotate(372deg); } }
 @keyframes astral-reactor-spin { to { transform: rotate(360deg); } }
+@keyframes astral-ring-turn { to { transform: rotate(360deg); } }
+@keyframes astral-stage-gyro {
+  from { transform: rotateY(73deg) rotateZ(0deg); }
+  to { transform: rotateY(73deg) rotateZ(360deg); }
+}
 @keyframes astral-inner-arc { from { transform: rotateX(62deg) rotateZ(0deg); } to { transform: rotateX(62deg) rotateZ(360deg); } }
 @keyframes astral-core-breathe {
   0%,100% { opacity: .63; filter: brightness(1); }
