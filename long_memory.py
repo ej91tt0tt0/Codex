@@ -234,6 +234,10 @@ def capture(connect, source, source_id):
 
 def schedule(connect, source, source_id):
     """Never block the Live stop operation or a chat response on memory extraction."""
+    with connect() as db:
+        enabled, _ = _enabled(db)
+    if not enabled:
+        return
     thread = threading.Thread(target=capture,args=(connect,source,str(source_id)),
                               daemon=True,name='aster-memory-'+source)
     thread.start()
@@ -273,11 +277,12 @@ def _score_memory(query, row):
     return score
 
 
-def select(connect, query='', limit=16):
+def select(connect, query='', limit=16, respect_enabled=True):
     """Search *all* stored facts, not just the 100 latest in UI state."""
     limit = max(1,min(int(limit),50))
     with connect() as db:
-        if db.execute("SELECT value FROM settings WHERE key='remember'").fetchone()[0] != 'true':
+        row = db.execute("SELECT value FROM settings WHERE key='remember'").fetchone()
+        if respect_enabled and (not row or row[0] != 'true'):
             return []
         rows = [dict(r) for r in db.execute(
             "SELECT id,content,topic,source,updated,created FROM memories ORDER BY id DESC LIMIT 5000")]
@@ -297,9 +302,14 @@ def select(connect, query='', limit=16):
 def session_context(connect):
     rows = select(connect,'',limit=36)
     # Important: this is a read-only snapshot at call start, not a live DB connection.
-    output = [{'content':r['content'],'topic':r['topic']} for r in rows]
-    text = json.dumps(output,ensure_ascii=False)
-    return text[:6500]
+    output = []
+    for row in rows:
+        # Never truncate JSON in the middle of a fact or an escaping sequence.
+        new = {'content':row['content'][:MAX_FACT],'topic':row['topic'][:MAX_TOPIC]}
+        if len(json.dumps(output + [new],ensure_ascii=False)) > 6300:
+            break
+        output.append(new)
+    return json.dumps(output,ensure_ascii=False) if output else ''
 
 
 def memory_count(connect):
