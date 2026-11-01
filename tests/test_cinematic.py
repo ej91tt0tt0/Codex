@@ -54,7 +54,7 @@ class CinematicUITests(unittest.TestCase):
         self.assertIn("文字入力・会話履歴", self.home)
         self.assertIn("home-live-mode .home-live-buttons", self.style)
         # Hidden details must contain settings, but stop/mute must remain reachable.
-        self.assertIn(("details", "home-advanced"), self.dom.ancestors["live-captions"])
+        self.assertNotIn(("details", "home-advanced"), self.dom.ancestors["live-captions"])
         self.assertIn(("details", "home-advanced"), self.dom.ancestors["conversation-mode"])
         self.assertIn(("details", "home-extra-panel"), self.dom.ancestors["text-input"])
         self.assertNotIn(("details", "home-advanced"), self.dom.ancestors["live-stop"])
