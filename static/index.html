@@ -102,6 +102,7 @@
             PCでは車の経路プレビュー。スマホではGoogleマップと現在地の利用状況に応じてナビへ進むよ。目的地を確認してね。
           </p>
         </div>
+        <div class="home-cockpit">
         <div class="voice-card">
           <div class="scope-label">
             <span id="link-mode">LIVE / HOME</span><span id="input-level">MIC OFF</span>
@@ -141,12 +142,6 @@
             <button type="button" id="replay-reply" class="text-button">もう一度聞く</button
             ><button type="button" id="copy-reply" class="text-button">コピー</button>
           </div>
-          <div class="home-log-heading">
-            <span>LIVE CONVERSATION / 会話ログ</span>
-            <a href="/archive">会話記録を開く</a>
-          </div>
-          <div id="live-captions" class="live-captions home-live-captions" role="log" aria-label="リアルタイム音声の字幕" aria-live="off"></div>
-          <p id="archive-save-status" class="archive-save-status" role="status" aria-live="polite">通話終了時に会話ログを自動保存します。</p>
           <p id="live-status" class="home-live-status" role="status" aria-live="polite">TALKを押して、音声会話を開始</p>
           <p class="home-billing-note">LIVE · 接続中はAPI利用料が発生します</p>
           <div class="voice-buttons home-live-buttons">
@@ -154,7 +149,28 @@
             <button id="live-mute" type="button" class="secondary" disabled>マイクをミュート</button>
             <button id="live-stop" type="button" class="secondary" disabled>通話を終了</button>
           </div>
-          <details id="home-advanced" class="home-advanced">
+
+        </div>
+        <aside class="home-conversation-sidebar" aria-label="Live会話ログ">
+          <div class="home-sidebar-kicker" aria-hidden="true"><span>TRANSCRIPT / LIVE SIGNAL</span><span class="home-sidebar-led"></span></div>
+          <div class="home-log-heading">
+            <span>LIVE CONVERSATION / 会話ログ</span>
+            <a href="/archive">会話記録を開く</a>
+          </div>
+          <div id="live-captions" class="live-captions home-live-captions" role="log" aria-label="リアルタイム音声の字幕" aria-live="off"></div>
+          <p id="archive-save-status" class="archive-save-status" role="status" aria-live="polite">通話終了時に会話ログを自動保存します。</p>
+        </aside>
+        </div>
+      </section>
+
+      <section id="voice-settings" class="panel" hidden aria-labelledby="voice-settings-heading">
+        <div class="section-navigation">
+          <button type="button" data-tab="tools" class="text-button">← メニュー</button>
+          <span class="eyebrow">CONTROL STATION / 08</span>
+        </div>
+        <h1 id="voice-settings-heading">設定・字幕・詳細情報</h1>
+        <p class="lead">音声・マイク・会話モード・Live接続診断をまとめて確認できます。</p>
+          <details id="home-advanced" class="home-advanced" open>
             <summary>設定・字幕・詳細情報</summary>
             <div class="home-advanced-body">
               <label class="check cinematic-sound-control"><input id="interface-sounds" type="checkbox" checked />操作音を鳴らす</label>
@@ -223,11 +239,19 @@
           </details>
             </div>
           </details>
+      </section>
+
+      <section id="text-workspace" class="panel" hidden aria-labelledby="text-workspace-heading">
+        <div class="section-navigation">
+          <button type="button" data-tab="tools" class="text-button">← メニュー</button>
+          <span class="eyebrow">CONVERSATION / TEXT</span>
         </div>
-        <details id="home-extra-panel" class="home-extra-panel">
-          <summary>文字入力・会話履歴</summary>
+        <h1 id="text-workspace-heading">文字入力・会話履歴</h1>
+        <p class="lead">文字での会話、画像添付、以前のメッセージはこちらから。</p>
+        <details id="home-extra-panel" class="home-extra-panel" open>
+          <summary>テキスト入力と過去のメッセージ</summary>
         <div class="conversation-extras">
-          <details id="text-input">
+          <details id="text-input" open>
             <summary>文字で入力する</summary>
             <form id="chat-form">
               <label for="message">メッセージ</label>
@@ -270,6 +294,9 @@
           </details>
         </div>
         </details>
+        <div class="text-workspace-actions">
+          <button type="button" id="text-workspace-to-voice" class="secondary">音声会話画面へ戻る</button>
+        </div>
       </section>
 
       <section id="tools" class="panel" hidden>
@@ -286,6 +313,14 @@
         </details>
 
         <div class="tool-grid">
+          <button type="button" data-tab="voice-settings">
+            <span class="tool-index" aria-hidden="true">08</span
+            ><span>設定・字幕・詳細情報<small>音声・マイク・Live診断</small></span
+            ><span class="tool-arrow" aria-hidden="true">↗</span></button
+          ><button type="button" data-tab="text-workspace">
+            <span class="tool-index" aria-hidden="true">09</span
+            ><span>文字入力・会話履歴<small>テキストと写真・以前の会話</small></span
+            ><span class="tool-arrow" aria-hidden="true">↗</span></button
           <button type="button" data-tab="health">
             <span class="tool-index" aria-hidden="true">01</span
             ><span>体調の記録<small>からだの変化を残す</small></span
@@ -910,7 +945,7 @@
       </div>
       <footer class="app-footer">
         <span class="footer-brand"
-          >ASTER 1.8<span class="footer-divider"> / </span>PERSONAL COMPANION</span
+          >ASTER 1.8.1<span class="footer-divider"> / </span>PERSONAL COMPANION</span
         ><span id="session-privacy">通常の会話 · このPCに保存</span
         ><time id="local-clock" aria-label="日本時間"></time>
       </footer>
