@@ -14,10 +14,10 @@
 
   function playUI(kind = 'tap') {
     if (!enabled) return;
-    const Audio = window.AudioContext || window.webkitAudioContext;
-    if (!Audio) return;
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return;
     try {
-      if (!context) context = new Audio();
+      if (!context) context = new AudioContextCtor();
       if (context.state === 'suspended') {
         context.resume().catch(() => {});
       }
