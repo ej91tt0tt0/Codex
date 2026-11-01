@@ -318,7 +318,11 @@
         </details>
 
         <div class="tool-grid">
-          <button type="button" data-tab="voice-settings">
+          <button type="button" data-tab="system-guard">
+            <span class="tool-index" aria-hidden="true">10</span
+            ><span>料金・バックアップ<small>利用上限・復元・データ保護</small></span
+            ><span class="tool-arrow" aria-hidden="true">↗</span></button
+          >          <button type="button" data-tab="voice-settings">
             <span class="tool-index" aria-hidden="true">08</span
             ><span>設定・字幕・詳細情報<small>音声・マイク・Live診断</small></span
             ><span class="tool-arrow" aria-hidden="true">↗</span></button
@@ -904,9 +908,20 @@
           </label>
           <button>記憶に追加</button>
         </form>
+        <div id="memory-conflicts" class="card memory-conflict-panel" role="region" aria-label="確認が必要な記憶" hidden></div>
         <form id="memory-search-form" class="memory-search-form card" role="search">
           <label for="memory-search">保存済みの記憶を検索
             <input id="memory-search" maxlength="150" placeholder="例：ブランド、制作、目標" />
+          </label>
+          <label for="memory-search-category">分類
+            <select id="memory-search-category">
+              <option value="">すべて</option>
+              <option value="project">プロジェクト</option>
+              <option value="preference">好み</option>
+              <option value="goal">目標</option>
+              <option value="relationship">人物・関係</option>
+              <option value="context">その他の情報</option>
+            </select>
           </label>
           <div class="memory-search-actions">
             <button type="submit">検索</button>
@@ -935,6 +950,76 @@
           <button id="clear" class="danger">
             会話・体調・記憶・記事・改善リクエスト・連携履歴・AI調査・日記・目標・通知・プロフィールを削除
           </button>
+        </div>
+      </section>
+      <section id="system-guard" class="panel" hidden aria-labelledby="system-guard-heading">
+        <div class="section-navigation">
+          <button type="button" data-tab="tools" class="text-button">← メニュー</button>
+          <span class="eyebrow">SYSTEM / SAFETY</span>
+        </div>
+        <h1 id="system-guard-heading">料金・バックアップ</h1>
+        <p class="lead">API利用の概算とPCに保存したデータを管理します。</p>
+        <div class="card">
+          <h2>API料金の概算</h2>
+          <p id="usage-summary" role="status">利用料金を確認中…</p>
+          <p id="usage-warning" class="hint" role="alert" hidden></p>
+          <p class="hint">表示は参考値です。APIの正式な請求額とは異なります。
+          テキストのトークン使用量とLive通信時間から計算します。未計測の利用や外部モデルへの委任料金などは含まれない場合があります。</p>
+          <form id="usage-settings-form">
+            <label>月間の概算予算（USD、0は制限なし）
+              <input id="usage-monthly-limit" type="number" min="0" max="100000" step="0.01" required />
+            </label>
+            <label>予算警告（%）
+              <input id="usage-warning-percent" type="number" min="1" max="100" step="1" required />
+            </label>
+            <details>
+              <summary>概算計算に使用する参考単価（公式請求単価ではありません）</summary>
+              <label>入力100万トークンあたり（USD）
+                <input id="usage-text-input-rate" type="number" min="0" step="0.01" required />
+              </label>
+              <label>出力100万トークンあたり（USD）
+                <input id="usage-text-output-rate" type="number" min="0" step="0.01" required />
+              </label>
+              <label>Live 1分あたり（USD）
+                <input id="usage-live-rate" type="number" min="0" step="0.001" required />
+              </label>
+            </details>
+            <button type="submit">料金設定を保存</button>
+          </form>
+          <p class="hint">上限到達時は新規API呼び出しを停止します。すでに接続中のLiveや実際のOpenAI請求を完全に止める保証はありません。</p>
+        </div>
+        <div class="card">
+          <h2>自動バックアップ</h2>
+          <p id="backup-status" role="status">バックアップの状態を確認中…</p>
+          <form id="backup-settings-form">
+            <label class="check"><input id="backup-enabled" type="checkbox" />バックアップを自動保存する</label>
+            <label>自動保存間隔
+              <select id="backup-interval">
+                <option value="6">6時間</option>
+                <option value="12">12時間</option>
+                <option value="24">24時間</option>
+                <option value="48">48時間</option>
+                <option value="168">7日</option>
+              </select>
+            </label>
+            <label>保持する世代数
+              <input id="backup-keep" type="number" min="2" max="40" step="1" required />
+            </label>
+            <button type="submit">バックアップ設定を保存</button>
+          </form>
+          <button id="backup-create-now" type="button" class="secondary">今すぐバックアップを作成</button>
+          <div id="backup-list" aria-label="利用できるバックアップ"></div>
+          <p class="hint">保存先：PCの .data/backups フォルダー。バックアップは暗号化されていません。
+          PCやディスクが故障した場合に備え、別の安全な保存先にもコピーしてください。</p>
+          <details>
+            <summary>復元手順（PCで操作）</summary>
+            <p>ASTERを終了した状態で、PowerShellをASTERフォルダーで開きます。</p>
+            <p><code>python restore_backup.py --list</code> で一覧を表示。</p>
+            <p><code>python restore_backup.py --verify .data/backups/バックアップ名.sqlite3</code> で整合性を確認。</p>
+            <p><code>python restore_backup.py --apply .data/backups/バックアップ名.sqlite3</code> で復元を開始。
+            最後にRESTOREと入力して確定します。元のデータは先に自動退避します。</p>
+            <p class="hint">復元すると現在のデータが指定時点の状態に戻ります。作業前に最新版の手動バックアップも保管してください。</p>
+          </details>
         </div>
       </section>
       <div id="notice-box" class="notice-box" hidden>
