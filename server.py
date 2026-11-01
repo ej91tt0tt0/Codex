@@ -18,6 +18,7 @@ import autonomy
 import realtime_proxy
 import live_proxy
 import live_archive
+import mobile_access
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -34,7 +35,7 @@ CONVERSATION_LOCK = threading.RLock()
 STATE_SNAPSHOT_LOCK = threading.Lock()
 RESEARCH_LOCK = threading.Lock()
 API_STATUS = {}
-APP_VERSION = '1.5.0'
+APP_VERSION = '1.6.0'
 WEATHER_URL = 'https://www.jma.go.jp/bosai/forecast/data/forecast/230000.json'
 REGIONAL_TOPICS = '碧南市 天気,名鉄三河線 運行,知多半島道路 交通,知多高速道路 交通,国道23号 愛知 渋滞,愛知県 交通情報'
 
@@ -585,11 +586,12 @@ def transcribe_audio(data, content_type):
 
 
 class Handler(BaseHTTPRequestHandler):
+    def request_mode(self):
+        return mobile_access.request_mode(self.headers, self.server.server_port,
+                                          self.client_address[0])
+
     def local_host(self):
-        try:
-            host=urllib.parse.urlsplit('http://'+self.headers.get('Host',''))
-            return host.hostname in ('127.0.0.1','localhost','::1') and (host.port or 80)==self.server.server_port and not host.username and not host.password and not host.path and not host.query and not host.fragment
-        except ValueError:return False
+        return self.request_mode() is not None
 
     def reply(self, value, status=200):
         data = json.dumps(value, ensure_ascii=False).encode()
@@ -658,6 +660,10 @@ class Handler(BaseHTTPRequestHandler):
             '/cinematic.css': ('cinematic.css', 'text/css'),
             '/cinematic.js': ('cinematic.js', 'text/javascript'),
             '/cosmos.css': ('cosmos.css', 'text/css'),
+            '/mobile.css': ('mobile.css', 'text/css'),
+            '/mobile.js': ('mobile.js', 'text/javascript'),
+            '/service-worker.js': ('service-worker.js', 'text/javascript'),
+            '/manifest.webmanifest': ('manifest.webmanifest', 'application/manifest+json'),
             '/archive': ('archive.html', 'text/html'),
             '/archive.js': ('archive.js', 'text/javascript'),
             '/archive.css': ('archive.css', 'text/css'),
@@ -673,6 +679,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', mime + '; charset=utf-8')
         self.send_header('Permissions-Policy', 'microphone=(self)')
+        if self.path == '/service-worker.js':
+            self.send_header('Service-Worker-Allowed', '/')
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'")
@@ -681,8 +689,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if not self.local_host():return self.reply({'error':'Local host required'},403)
-        origin = self.headers.get('Origin')
-        if origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'):
+        if not mobile_access.valid_post_origin(self.headers, self.request_mode()):
             return self.reply({'error': 'Cross-origin request blocked'}, 403)
         if self.path in ('/api/live/archive', '/api/live/archive/delete', '/api/live/archive/retry'):
             if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
