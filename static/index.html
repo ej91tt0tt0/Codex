@@ -2,14 +2,19 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>ASTER — Personal AI</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#060b15">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>ASTER — Personal AI</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/style.css" />
     <link rel="stylesheet" href="/aster-theme.css" />
     <link rel="stylesheet" href="/home-live.css" />
     <link rel="stylesheet" href="/cinematic.css" />
     <link rel="stylesheet" href="/cosmos.css" />
+    <link rel="stylesheet" href="/mobile.css" />
     <script src="/audio.js" defer></script>
     <script src="/input.js" defer></script>
     <script src="/scope.js" defer></script>
@@ -19,6 +24,7 @@
     <script src="/app.js" defer></script>
     <script src="/live.js" defer></script>
     <script src="/cinematic.js" defer></script>
+    <script src="/mobile.js" defer></script>
   </head>
   <body class="cosmos-page">
     <div id="aster-intro" class="aster-intro" role="dialog" aria-modal="true" aria-label="ASTER起動シーケンス" hidden>
@@ -150,6 +156,10 @@
             <summary>設定・字幕・詳細情報</summary>
             <div class="home-advanced-body">
               <label class="check cinematic-sound-control"><input id="interface-sounds" type="checkbox" checked />操作音を鳴らす</label>
+              <div class="mobile-install-settings">
+                <button id="mobile-install" type="button" class="secondary">ホーム画面に追加する方法</button>
+                <p id="mobile-install-hint" class="hint" role="status">スマホではHTTPS接続してからホーム画面に追加できます。</p>
+              </div>
         <div class="conversation-controls">
           <label
             >会話モード<select id="conversation-mode">
