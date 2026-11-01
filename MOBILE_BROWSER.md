@@ -29,6 +29,8 @@
    tailscale serve --bg 8000
    ```
 
+   **注意：** PCにTailscaleを入れても `tailscale` コマンドが見つからない場合は、ASTERの起動ターミナルに表示された **`& "C:\\Program Files\\Tailscale\\tailscale.exe" serve --bg 8000`** のようなコマンドを使ってください。ポートは実際の番号に合わせます。
+
    最初の起動でTailscaleの許可を求められたら承認し、必要ならもう一度実行してください。Tailscale Serveが表示したURLとASTERの「MOBILE URL」が一致していることを確認してください。
 7. スマホのTailscaleを接続し、SafariまたはChromeで **MOBILE URL** を開きます。ASTERが表示されたら円形メーターの **TALK** をタップし、マイクへのアクセスを許可します。
 8. 音声が再生されない場合は、画面の「設定・字幕・詳細情報」で再生コントロールを押してください。ブラウザによって最初の音声再生にタップが必要です。
