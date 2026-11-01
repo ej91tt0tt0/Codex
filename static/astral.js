@@ -182,6 +182,7 @@
     const meterLevel = Number(orb?.querySelector('canvas')?.dataset.level || 0);
     const actualLevel = active && Number.isFinite(meterLevel) ? Math.max(0,Math.min(1,meterLevel)) : 0;
     root.style.setProperty('--astral-voice',actualLevel.toFixed(3));
+    root.style.setProperty('--astral-glow',Math.round(32 + actualLevel * 22) + 'px');
     const velocity = active ? .185 + actualLevel * .34 : .056;
     context.clearRect(0,0,width,height);
     for (const s of stars) drawStar(s,actualLevel,velocity,dt);
