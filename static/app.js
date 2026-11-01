@@ -345,6 +345,8 @@ function render(s) {
     voice.highQualityEnabled = quality;
     $('high-quality-input').checked = cfg.high_quality_input !== 'false';
     $('hands-free').checked = cfg.hands_free === 'true';
+    if (HOME_LIVE_DEFAULT && cfg.interaction_mode === 'text' &&
+        window.AsterLiveHome?.isActive?.()) window.AsterLiveHome.stop();
     handsfree.configure(!HOME_LIVE_DEFAULT && cfg.hands_free === 'true' && cfg.interaction_mode !== 'text');
     const enabled = cfg.proactive_enabled === 'true',
       interval = Number(cfg.proactive_interval || 600) * 1000;
