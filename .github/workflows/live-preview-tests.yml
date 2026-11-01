@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile Python integration
-        run: python -m py_compile live_proxy.py live_archive.py server.py
+        run: python -m py_compile live_proxy.py live_archive.py mobile_access.py server.py launch.py
       - name: Run all Python regression tests
         run: python -m unittest discover -s tests -v
       - name: Check browser JavaScript syntax
@@ -32,6 +32,8 @@ jobs:
           node --check static/realtime.js
           node --check static/archive.js
           node --check static/cinematic.js
+          node --check static/mobile.js
+          node --check static/service-worker.js
       - name: Verify standard voice entry and classic fallback
         run: |
           python - <<'PY'

@@ -434,7 +434,7 @@
     label('マイクを準備しています…');
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection)
-        throw new Error('Chrome / Edge とマイクの利用許可が必要です。');
+        throw new Error('HTTPSのSafari / Chromeなどの対応ブラウザとマイクの利用許可が必要です。');
       if (isHome) window.AsterClassic?.stop?.();
       if (!(await micLock(token)))
         throw new Error('他のASTER画面がマイクを使用中です。そちらを停止してください。');

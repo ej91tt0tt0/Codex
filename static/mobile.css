@@ -1,0 +1,155 @@
+/* ASTER 1.6 / mobile-first browser cockpit
+   Runs as a browser tab or an installed home-screen web app. */
+:root { -webkit-text-size-adjust: 100%; }
+html { scroll-padding-top: 112px; }
+button, a, input, textarea, select, summary {
+  touch-action: manipulation;
+}
+input, textarea, select { font-size: max(16px, 1em); }
+.mobile-install-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 14px 0;
+  padding-top: 12px;
+  border-top: 1px solid #294865;
+}
+.mobile-install-settings button { padding: 8px 13px; min-height: 40px; }
+.mobile-install-settings .hint { margin: 0; line-height: 1.7; }
+.archive-nav {
+  align-self: center;
+  color: #a9d8f0;
+  border: 1px solid rgba(107,169,218,.25);
+  padding: 7px 10px;
+  min-height: 38px;
+  font-size: 11px;
+  line-height: 1.8;
+  text-decoration: none;
+}
+.archive-nav:hover { border-color: #86d7ff; color: #fff; }
+@media (max-width: 767px) {
+  html { scroll-padding-top: 114px; }
+  body { min-width: 0; }
+  body::before, body::after { display: none !important; }
+  main { width: 100%; padding: 0 13px calc(40px + env(safe-area-inset-bottom, 0px)); }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 6px;
+    min-height: 91px !important;
+    padding: max(5px, env(safe-area-inset-top, 0px)) 3px 9px;
+    align-content: center;
+    background: rgba(4,14,26,.96);
+    border-bottom: 1px solid #284966;
+  }
+  header .brand { font-size: 22px; letter-spacing: .07em; padding-bottom: 10px; margin-right: auto; }
+  header .brand-mark { width: 24px; height: 24px; margin-right: 8px; }
+  header .brand-caption { font-size: 6px; left: 32px; }
+  header nav { display: flex; order: 3; width: 100%; margin: 0; gap: 4px; justify-content: space-around; align-items: center; }
+  header nav button, header nav .archive-nav {
+    flex: 1 1 0; min-height: 41px; padding: 6px 7px; text-align: center;
+    font-size: 11px; white-space: nowrap;
+  }
+  header #status { display: none; }
+  header .mic-toggle {
+    order: 2;
+    padding: 6px 9px !important;
+    min-height: 37px;
+    font-size: 10px;
+  }
+  .panel { scroll-margin-top: 112px; }
+  .home-live-mode #chat { padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
+  .home-live-mode .conversation-heading { margin: 11px 0 4px; }
+  .home-live-mode .conversation-heading h1 { font-size: 15px; letter-spacing: .15em; margin: 0; }
+  .home-live-mode .voice-card { padding: 0 0 25px; margin: 0; }
+  .home-live-mode .voice-visual { margin: 3px auto 0; }
+  .home-live-mode .voice-orb {
+    width: min(64vw, 265px);
+    height: min(64vw, 265px);
+    min-width: 188px;
+    min-height: 188px;
+  }
+  .home-live-mode .voice-card .live-orb-action {
+    width: clamp(76px, 23vw, 96px);
+    height: clamp(76px, 23vw, 96px);
+    font-size: 12px;
+  }
+  .home-live-mode .orb-coordinate { font-size: 9px; }
+  .home-live-mode .scope-label { padding: 0 7px; font-size: 10px; }
+  .home-live-mode .home-live-status { font-size: 12px; margin: 8px auto 3px; }
+  .home-live-mode .home-billing-note { font-size: 9px; line-height: 1.45; margin: 0 auto 6px; }
+  .home-live-mode .home-log-heading { margin-top: 8px; font-size: 10px; padding: 0 3px; }
+  .home-live-mode .home-log-heading a { font-size: 10px; }
+  .home-live-mode .home-live-captions {
+    margin: 9px auto 7px;
+    padding: 10px 11px;
+    height: min(24dvh, 220px);
+    min-height: 115px;
+    max-height: 240px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    border-radius: 1px;
+  }
+  .home-live-mode .home-live-captions p { font-size: 12px; line-height: 1.65; }
+  .home-live-mode .archive-save-status { font-size: 11px; min-height: 21px; }
+  .home-live-mode .home-advanced, .home-live-mode .home-extra-panel { width: 100%; }
+  .home-live-mode .home-advanced summary,
+  .home-live-mode .home-extra-panel summary {
+    min-height: 44px; display: flex; align-items: center; padding: 9px 12px; line-height: 1.5;
+  }
+  .home-live-mode .home-advanced-body { padding: 12px; }
+  .home-live-mode .home-live-buttons {
+    position: fixed;
+    top: auto;
+    left: 0; right: 0; bottom: 0;
+    z-index: 16;
+    width: 100%; max-width: none;
+    margin: 0;
+    padding: 10px 15px calc(10px + env(safe-area-inset-bottom, 0px));
+    gap: 12px;
+    background: rgba(5,17,31,.96);
+    border-top: 1px solid #437497;
+    box-shadow: 0 -14px 28px rgba(3,13,25,.38);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .home-live-mode .home-live-buttons button {
+    flex: 1 1 0;
+    font-size: 12px;
+    min-width: 110px;
+    min-height: 50px;
+    padding: 12px 9px;
+  }
+  .home-live-mode .home-live-buttons #live-start { display: none; }
+  .home-live-mode .home-live-settings { width: 100%; }
+  .home-live-mode .home-live-settings label { width: 100%; justify-content: center; }
+  .home-live-mode .home-live-settings select { max-width: 100%; }
+  .home-live-mode #live-audio { width: 100%; }
+  .home-live-mode .home-extra-panel .conversation-extras { padding: 7px; }
+  .tool-grid { grid-template-columns: 1fr 1fr; }
+  .tool-grid button { min-height: 62px; }
+  input:not([type='checkbox']), textarea, select { max-width: 100%; }
+  .archive-main { padding-bottom: calc(38px + env(safe-area-inset-bottom, 0px)); }
+  .archive-header { padding-top: max(10px,env(safe-area-inset-top,0px)); min-height: 65px; }
+  .archive-header nav a { font-size: 11px; }
+  .archive-transcript { -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 390px) {
+  main { padding-left: 9px; padding-right: 9px; }
+  .home-live-mode .home-live-captions { height: 22dvh; min-height: 108px; }
+  .home-live-mode .voice-orb { width: min(61vw, 225px); height: min(61vw, 225px); min-width: 172px; min-height: 172px; }
+  .home-live-mode .home-log-heading { flex-wrap: wrap; }
+  .home-live-mode .home-live-buttons { padding-left: 10px; padding-right: 10px; }
+  .home-live-mode .home-live-buttons button { min-width: 95px; }
+}
+@media (max-height: 680px) and (max-width: 767px) {
+  .home-live-mode .voice-orb { width: min(50vw, 208px); height: min(50vw, 208px); min-width: 165px; min-height: 165px; }
+  .home-live-mode .home-live-captions { height: 20dvh; min-height: 95px; }
+  .home-live-mode .conversation-heading { margin-top: 2px; }
+}
+@media (max-width: 767px) and (orientation: landscape) {
+  .home-live-mode .voice-orb { width: 148px; height: 148px; min-width: 148px; min-height: 148px; }
+  .home-live-mode .home-live-captions { height: 24dvh; }
+}
