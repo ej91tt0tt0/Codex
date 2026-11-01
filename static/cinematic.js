@@ -88,6 +88,8 @@
         extra.open = true;
         const details = $('text-input');
         if (details) details.open = true;
+        // Text controls were moved out of the home voice cockpit.
+        document.querySelector('[data-tab="text-workspace"]')?.click();
       }
     });
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
