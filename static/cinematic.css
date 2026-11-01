@@ -1,5 +1,6 @@
 /* ASTER / cinematic boot + reduced visual interface.
    Procedural motion graphics: no copyrighted footage or external assets. */
+.intro-playing { overflow: hidden; }
 .aster-intro[hidden] { display: none !important; }
 .aster-intro {
   position: fixed;
